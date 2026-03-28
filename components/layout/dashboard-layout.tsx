@@ -6,12 +6,20 @@ import { Navbar } from "./navbar"
 import { Sidebar } from "./sidebar"
 import { createClient } from "@/lib/supabase/client"
 
+interface ProInfo {
+  isPro: boolean
+  planLabel?: string
+  expiresAt?: string | null
+  remainingDays?: number
+}
+
 interface DashboardLayoutProps {
   children: React.ReactNode
   userEmail?: string
+  proInfo?: ProInfo
 }
 
-export function DashboardLayout({ children, userEmail }: DashboardLayoutProps) {
+export function DashboardLayout({ children, userEmail, proInfo }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
 
@@ -23,7 +31,7 @@ export function DashboardLayout({ children, userEmail }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} proInfo={proInfo} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Navbar

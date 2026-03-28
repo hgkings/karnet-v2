@@ -181,7 +181,8 @@ export class PaymentLogic {
     console.log('[payment.createPayment] PayTR credentials loaded, calling Link API...')
 
     const amountKurus = planConfig.amountTry * 100 // TL → kurus
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.xn--krnet-3qa.com'}/api/paytr/callback`
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.xn--krnet-3qa.com').replace(/\/+$/, '')
+    const callbackUrl = `${baseUrl}/api/paytr/callback`
 
     // PayTR hash: merchant_id + merchant_oid + amount + salt
     const hashStr = `${merchantId}${merchantOid}${amountKurus}${merchantSalt}`
@@ -197,11 +198,12 @@ export class PaymentLogic {
       payment_amount: String(amountKurus),
       paytr_token: paytrToken,
       currency: 'TL',
-      merchant_ok_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/billing?paymentId=${payment.id}&token=${token}`,
-      merchant_fail_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/billing?error=payment_failed`,
+      merchant_ok_url: `${baseUrl}/billing?paymentId=${payment.id}&token=${token}`,
+      merchant_fail_url: `${baseUrl}/billing?error=payment_failed`,
       callback_link: callbackUrl,
       lang: 'tr',
       payment_type: 'link',
+      link_type: '1',
     })
 
     console.log('[payment.createPayment] PayTR request URL: https://www.paytr.com/odeme/api/link/create')

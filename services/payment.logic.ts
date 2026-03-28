@@ -134,6 +134,15 @@ export class PaymentLogic {
   ): Promise<{ paymentId: string; paymentLink: string; merchantOid: string }> {
     const { planId, userEmail } = payload as { planId: string; userEmail: string }
 
+    console.log('[payment] env links:', {
+      test: process.env.PAYTR_LINK_TEST ? 'SET' : 'MISSING',
+      starter_monthly: process.env.PAYTR_LINK_STARTER_MONTHLY ? 'SET' : 'MISSING',
+      starter_yearly: process.env.PAYTR_LINK_STARTER_YEARLY ? 'SET' : 'MISSING',
+      pro_monthly: process.env.PAYTR_LINK_PRO_MONTHLY ? 'SET' : 'MISSING',
+      pro_yearly: process.env.PAYTR_LINK_PRO_YEARLY ? 'SET' : 'MISSING',
+    })
+    console.log('[payment] planId:', planId, 'userId:', userId)
+
     const planConfig = PLANS[planId]
     if (!planConfig) {
       throw new ServiceError('Geçersiz plan seçimi', {
@@ -149,7 +158,7 @@ export class PaymentLogic {
       starter_yearly: process.env.PAYTR_LINK_STARTER_YEARLY,
       pro_monthly: process.env.PAYTR_LINK_PRO_MONTHLY,
       pro_yearly: process.env.PAYTR_LINK_PRO_YEARLY,
-      test_1tl: process.env.PAYTR_LINK_TEST_1TL,
+      test_1tl: process.env.PAYTR_LINK_TEST,
     }
 
     const paymentLink = linkEnvMap[planId]

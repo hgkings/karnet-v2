@@ -5,6 +5,7 @@
 // ----------------------------------------------------------------
 
 import { ServiceError } from '@/lib/gateway/types'
+import type { UserRepository } from '@/repositories/user.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -124,29 +125,45 @@ export interface UserProfile {
 // ----------------------------------------------------------------
 
 export class UserLogic {
+  constructor(private readonly userRepo: UserRepository) {}
+
   /**
    * Kullanici profilini getirir.
-   * FAZ5'te repository baglanacak.
    */
   async getProfile(
     _traceId: string,
     _payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<UserProfile | null> {
-    // TODO(FAZ5): userRepository.findById(userId)
-    return null
+    const row = await this.userRepo.findById(userId)
+    if (!row) return null
+    return {
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      plan: row.plan as PlanType,
+      isPro: row.is_pro ?? false,
+      proStartedAt: row.pro_started_at,
+      proExpiresAt: row.pro_expires_at,
+      proRenewal: row.pro_renewal ?? false,
+      emailNotificationsEnabled: row.email_notifications_enabled ?? true,
+      emailWeeklyReport: row.email_weekly_report ?? true,
+      emailRiskAlert: row.email_risk_alert ?? true,
+      emailMarginAlert: row.email_margin_alert ?? true,
+      emailProExpiry: row.email_pro_expiry ?? true,
+    }
   }
 
   /**
    * Profil gunceller.
-   * FAZ5'te repository baglanacak.
    */
   async updateProfile(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<{ success: boolean }> {
-    // TODO(FAZ5): userRepository.update(userId, updates)
+    const updates = payload as Partial<Record<string, unknown>>
+    await this.userRepo.update(userId, updates)
     return { success: true }
   }
 
@@ -267,4 +284,4 @@ export class UserLogic {
   }
 }
 
-export const userLogic = new UserLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

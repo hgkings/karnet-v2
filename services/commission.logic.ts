@@ -2,10 +2,11 @@
 // CommissionLogic — Katman 6
 // Komisyon oranlari yonetimi.
 // Varsayilan oranlar: KNOWLEDGE-BASE.md Section 4.
-// Kullanici override: DB'den (FAZ5'te baglanacak).
+// Kullanici override: DB'den.
 // ----------------------------------------------------------------
 
 import { ServiceError } from '@/lib/gateway/types'
+import type { CommissionRepository } from '@/repositories/commission.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -167,6 +168,8 @@ const DEFAULT_RETURN_RATE: Record<MarketplaceName, number> = {
 // ----------------------------------------------------------------
 
 export class CommissionLogic {
+  constructor(private readonly commissionRepo: CommissionRepository) {}
+
   /**
    * Varsayilan komisyon oranlarini dondurur.
    * payload: { marketplace: MarketplaceName }
@@ -200,11 +203,12 @@ export class CommissionLogic {
    */
   async getUserRates(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<CommissionRate[]> {
-    // TODO(FAZ5): commissionRepository.getUserRates(userId, marketplace)
-    return []
+    const { marketplace } = (payload ?? {}) as { marketplace?: MarketplaceName }
+    const rows = await this.commissionRepo.getUserRates(userId, marketplace)
+    return rows.map(r => ({ marketplace: r.marketplace as MarketplaceName, category: r.category, rate: r.rate }))
   }
 
   /**
@@ -213,10 +217,11 @@ export class CommissionLogic {
    */
   async updateRate(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<{ success: boolean }> {
-    // TODO(FAZ5): commissionRepository.upsertRate(userId, marketplace, category, rate)
+    const { marketplace, category, rate } = payload as { marketplace: string; category: string; rate: number }
+    await this.commissionRepo.upsertRate(userId, marketplace, category, rate)
     return { success: true }
   }
 
@@ -227,7 +232,7 @@ export class CommissionLogic {
   async importFromCsv(
     traceId: string,
     payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<{ imported: number; errors: string[] }> {
     const { csvContent } = payload as { csvContent: string }
     if (!csvContent) {
@@ -255,7 +260,7 @@ export class CommissionLogic {
         continue
       }
 
-      // TODO(FAZ5): commissionRepository.upsertRate(...)
+      await this.commissionRepo.upsertRate(userId, parts[0]!, parts[1]!, rate)
       imported++
     }
 
@@ -305,4 +310,33 @@ export class CommissionLogic {
   }
 }
 
-export const commissionLogic = new CommissionLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)
+
+/**
+ * Standalone helper — instance gerektirmeden kategori varsayilanlarini dondurur.
+ * Saf hesaplama, DB bagimliligi yok.
+ */
+export function getCategoryDefaults(marketplace: MarketplaceName, category?: string): CategoryDefaults {
+  const marketDefaults = MARKETPLACE_DEFAULTS[marketplace]
+  const ratesMap = DEFAULT_RATES[marketplace] ?? {}
+  const defaultRate = DEFAULT_COMMISSION[marketplace]
+
+  let commissionPct = defaultRate
+  if (category && ratesMap[category] !== undefined) {
+    commissionPct = ratesMap[category]!
+  }
+
+  let returnRatePct = DEFAULT_RETURN_RATE[marketplace]
+  if (category && CATEGORY_RETURN_RATES[category] !== undefined) {
+    returnRatePct = CATEGORY_RETURN_RATES[category]!
+  }
+  if (marketplace === 'amazon_tr') {
+    returnRatePct += 3
+  }
+
+  return {
+    commissionPct,
+    returnRatePct,
+    ...marketDefaults,
+  }
+}

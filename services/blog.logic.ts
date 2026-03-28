@@ -7,6 +7,7 @@
 
 import { ServiceError } from '@/lib/gateway/types'
 import { checkRateLimit } from '@/lib/security/rate-limit'
+import type { BlogRepository } from '@/repositories/blog.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -74,6 +75,7 @@ const BLOG_POSTS: BlogPost[] = [
 // ----------------------------------------------------------------
 
 export class BlogLogic {
+  constructor(private readonly blogRepo: BlogRepository) {}
   /**
    * Tum blog yazilarini listeler (statik, content haric).
    */
@@ -113,11 +115,11 @@ export class BlogLogic {
    */
   async listComments(
     _traceId: string,
-    _payload: unknown,
+    payload: unknown,
     _userId: string
-  ): Promise<BlogComment[]> {
-    // TODO(FAZ5): blogRepository.getApprovedComments(slug)
-    return []
+  ): Promise<unknown[]> {
+    const { slug } = payload as { slug: string }
+    return this.blogRepo.getApprovedComments(slug)
   }
 
   /**
@@ -168,7 +170,11 @@ export class BlogLogic {
       })
     }
 
-    // TODO(FAZ5): blogRepository.createComment({ slug, authorName, content, isApproved: false })
+    await this.blogRepo.createComment({
+      post_slug: input.slug,
+      author_name: input.authorName,
+      content: input.content,
+    })
 
     return {
       success: true,
@@ -206,9 +212,11 @@ export class BlogLogic {
       })
     }
 
-    // TODO(FAZ5):
-    // approve → blogRepository.approveComment(commentId)
-    // reject → blogRepository.deleteComment(commentId)
+    if (action === 'approve') {
+      await this.blogRepo.approveComment(commentId)
+    } else {
+      await this.blogRepo.deleteComment(commentId)
+    }
 
     return { success: true }
   }
@@ -219,12 +227,13 @@ export class BlogLogic {
    */
   async listAllComments(
     _traceId: string,
-    _payload: unknown,
+    payload: unknown,
     _userId: string
-  ): Promise<{ comments: BlogComment[]; total: number }> {
-    // TODO(FAZ5): blogRepository.getAllComments({ isApproved })
-    return { comments: [], total: 0 }
+  ): Promise<{ comments: unknown[]; total: number }> {
+    const { isApproved } = (payload ?? {}) as { isApproved?: boolean }
+    const comments = await this.blogRepo.getAllComments(isApproved)
+    return { comments, total: comments.length }
   }
 }
 
-export const blogLogic = new BlogLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

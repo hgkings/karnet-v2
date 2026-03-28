@@ -7,6 +7,7 @@
 
 import { ServiceError } from '@/lib/gateway/types'
 import { sendEmail } from '@/lib/email/send'
+import type { SupportRepository } from '@/repositories/support.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -51,13 +52,15 @@ export interface ReplyPayload {
 // ----------------------------------------------------------------
 
 export class SupportLogic {
+  constructor(private readonly supportRepo: SupportRepository) {}
+
   /**
    * Destek talebi olusturur.
    */
   async createTicket(
     traceId: string,
     payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<{ ticketId: string }> {
     const input = payload as CreateTicketPayload
 
@@ -77,32 +80,42 @@ export class SupportLogic {
       })
     }
 
-    // TODO(FAZ5): supportRepository.create({ userId, ...input, status: 'acik' })
-    return { ticketId: 'placeholder' }
+    const row = await this.supportRepo.create({
+      user_id: userId,
+      user_email: input.userEmail,
+      subject: input.subject,
+      category: input.category,
+      priority: input.priority,
+      status: 'acik',
+      message: input.message,
+      admin_reply: null,
+      admin_replied_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+
+    return { ticketId: row.id }
   }
 
   /**
    * Kullanici taleplerini listeler.
-   * FAZ5'te repository baglanacak.
    */
   async listTickets(
     _traceId: string,
     _payload: unknown,
-    _userId: string
-  ): Promise<Ticket[]> {
-    // TODO(FAZ5): supportRepository.findByUserId(userId)
-    return []
+    userId: string
+  ): Promise<unknown[]> {
+    return this.supportRepo.findByUserId(userId)
   }
 
   /**
    * Tekil talep getirir.
-   * FAZ5'te repository baglanacak.
    */
   async getTicket(
     traceId: string,
     payload: unknown,
     _userId: string
-  ): Promise<Ticket | null> {
+  ): Promise<unknown> {
     const { ticketId } = payload as { ticketId: string }
     if (!ticketId) {
       throw new ServiceError('Talep ID\'si zorunludur', {
@@ -111,8 +124,7 @@ export class SupportLogic {
         traceId,
       })
     }
-    // TODO(FAZ5): supportRepository.findById(ticketId)
-    return null
+    return this.supportRepo.findById(ticketId)
   }
 
   /**
@@ -142,11 +154,11 @@ export class SupportLogic {
       })
     }
 
-    // TODO(FAZ5): supportRepository.updateReply(ticketId, {
-    //   adminReply: input.adminReply,
-    //   adminRepliedAt: new Date().toISOString(),
-    //   status: input.newStatus ?? 'cevaplandi',
-    // })
+    await this.supportRepo.updateReply(
+      input.ticketId,
+      input.adminReply,
+      input.newStatus ?? 'cevaplandi'
+    )
 
     // v1 hata duzeltmesi: Kullaniciya email gonder
     let emailSent = false
@@ -177,7 +189,6 @@ export class SupportLogic {
 
   /**
    * Talebi kapatir.
-   * FAZ5'te repository baglanacak.
    */
   async closeTicket(
     traceId: string,
@@ -192,22 +203,24 @@ export class SupportLogic {
         traceId,
       })
     }
-    // TODO(FAZ5): supportRepository.updateStatus(ticketId, 'kapali')
+    await this.supportRepo.updateStatus(ticketId, 'kapali')
     return { success: true }
   }
 
   /**
    * Admin icin tum talepleri listeler (filtre + pagination).
-   * FAZ5'te repository baglanacak.
    */
   async listAllTickets(
     _traceId: string,
-    _payload: unknown,
+    payload: unknown,
     _userId: string
-  ): Promise<{ tickets: Ticket[]; total: number }> {
-    // TODO(FAZ5): supportRepository.findAll({ status, priority, category, search, page })
-    return { tickets: [], total: 0 }
+  ): Promise<unknown> {
+    const filters = payload as { status?: string; priority?: string; category?: string; search?: string; page?: number }
+    return this.supportRepo.findAll(
+      { status: filters.status, priority: filters.priority, category: filters.category, search: filters.search },
+      filters.page ?? 1
+    )
   }
 }
 
-export const supportLogic = new SupportLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

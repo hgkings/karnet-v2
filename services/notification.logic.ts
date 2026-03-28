@@ -7,6 +7,7 @@
 
 import { ServiceError } from '@/lib/gateway/types'
 import { sendEmail } from '@/lib/email/send'
+import type { NotificationRepository } from '@/repositories/notification.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -60,22 +61,21 @@ const RISK_ALERT_COOLDOWN_MS = 6 * 60 * 60 * 1000 // 6 saat
 // ----------------------------------------------------------------
 
 export class NotificationLogic {
+  constructor(private readonly notificationRepo: NotificationRepository) {}
+
   /**
    * Kullanici bildirimlerini listeler (en yeni 50, okunmamis).
-   * FAZ5'te repository baglanacak.
    */
   async list(
     _traceId: string,
     _payload: unknown,
-    _userId: string
-  ): Promise<Notification[]> {
-    // TODO(FAZ5): notificationRepository.getByUserId(userId, { limit: 50, isRead: false })
-    return []
+    userId: string
+  ): Promise<unknown[]> {
+    return this.notificationRepo.getByUserId(userId, { limit: 50, isRead: false })
   }
 
   /**
    * Bildirimi okundu olarak isaretler.
-   * FAZ5'te repository baglanacak.
    */
   async markAsRead(
     traceId: string,
@@ -90,34 +90,43 @@ export class NotificationLogic {
         traceId,
       })
     }
-    // TODO(FAZ5): notificationRepository.markAsRead(notificationId)
+    await this.notificationRepo.markAsRead(notificationId)
     return { success: true }
   }
 
   /**
    * Tum bildirimleri okundu olarak isaretler.
-   * FAZ5'te repository baglanacak.
    */
   async markAllAsRead(
     _traceId: string,
     _payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<{ success: boolean }> {
-    // TODO(FAZ5): notificationRepository.markAllAsRead(userId)
+    await this.notificationRepo.markAllAsRead(userId)
     return { success: true }
   }
 
   /**
    * Bildirim olusturur (upsert — dedupeKey ile).
-   * FAZ5'te repository baglanacak.
    */
   async create(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<{ id: string }> {
-    // TODO(FAZ5): notificationRepository.upsert({ userId, ...payload })
-    return { id: 'placeholder' }
+    const input = payload as CreateNotificationPayload
+    const row = await this.notificationRepo.upsert({
+      user_id: userId,
+      type: input.type,
+      category: input.category,
+      title: input.title,
+      message: input.message,
+      analysis_id: input.analysisId ?? null,
+      product_id: input.productId ?? null,
+      href: input.href ?? null,
+      dedupe_key: input.dedupeKey ?? null,
+    })
+    return { id: row.id }
   }
 
   /**
@@ -160,8 +169,7 @@ export class NotificationLogic {
     }
 
     // 6 saatlik cooldown kontrolu
-    // TODO(FAZ5): notificationRepository.getLastRiskAlertTime(userId)
-    const lastAlertTime: string | null = null // FAZ5'te DB'den gelecek
+    const lastAlertTime = await this.notificationRepo.getLastRiskAlertTime(userId)
 
     if (lastAlertTime) {
       const timeSince = Date.now() - new Date(lastAlertTime).getTime()
@@ -184,8 +192,6 @@ export class NotificationLogic {
         `,
       })
 
-      // TODO(FAZ5): notificationRepository.updateLastRiskAlertTime(userId)
-
       return { emailSent: true, notificationCreated: true }
     } catch {
       // Email hatasi bildirimi engellemez
@@ -194,4 +200,4 @@ export class NotificationLogic {
   }
 }
 
-export const notificationLogic = new NotificationLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

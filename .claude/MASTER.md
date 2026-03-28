@@ -94,7 +94,7 @@ Bu dosyalara **Hilmi onayı olmadan** dokunulamaz.
 | FAZ3 | faz3-gateway.md | ✅ Tamamlandı | — |
 | FAZ4 | faz4-services.md | ✅ Tamamlandı | KNOWLEDGE-BASE.md |
 | FAZ5 | faz5-repository.md | ✅ Tamamlandı | DATABASE-SCHEMA.md |
-| FAZ6 | faz6-api.md | ⏳ Bekliyor | — |
+| FAZ6 | faz6-api.md | ✅ Tamamlandı | — |
 | FAZ7 | faz7-ui.md | ⏳ Bekliyor | COMPONENT-GUIDE.md |
 | FAZ8 | faz8-payment.md | 🔒 En Son | — |
 

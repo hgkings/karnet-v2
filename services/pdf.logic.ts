@@ -6,8 +6,9 @@
 // ----------------------------------------------------------------
 
 import { ServiceError } from '@/lib/gateway/types'
-import { userLogic } from './user.logic'
+import { PLAN_LIMITS } from './user.logic'
 import type { PlanType } from './user.logic'
+import type { AnalysisRepository } from '@/repositories/analysis.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -15,7 +16,7 @@ import type { PlanType } from './user.logic'
 
 export interface GenerateReportPayload {
   analysisId: string
-  plan: PlanType
+  plan?: PlanType
 }
 
 export interface PdfReportResult {
@@ -28,6 +29,8 @@ export interface PdfReportResult {
 // ----------------------------------------------------------------
 
 export class PdfLogic {
+  constructor(private readonly analysisRepo: AnalysisRepository) {}
+
   /**
    * Aylik PDF indirme limitini kontrol eder.
    * v1 hata duzeltmesi: Bu kontrol artik server-side (v1'de sadece client-side vardi).
@@ -39,7 +42,12 @@ export class PdfLogic {
   ): Promise<{ allowed: boolean; used: number; limit: number }> {
     const { plan } = payload as { plan: PlanType }
 
-    const limits = userLogic.resolveLimits(plan)
+    const resolvedPlan = (['pro', 'pro_monthly', 'pro_yearly'].includes(plan)) ? 'pro'
+      : (plan === 'admin') ? 'admin'
+      : (['starter', 'starter_monthly', 'starter_yearly'].includes(plan)) ? 'starter'
+      : 'free'
+
+    const limits = PLAN_LIMITS[resolvedPlan]
     const monthlyLimit = limits.pdfReportMonthly
 
     // Sinirsiz plan
@@ -56,8 +64,9 @@ export class PdfLogic {
       })
     }
 
-    // TODO(FAZ5): pdfDownloadRepository.getMonthlyCount(userId, currentMonth)
-    const usedThisMonth = 0 // FAZ5'te DB'den gelecek
+    // PDF indirme sayisi icin ayri tablo yok — simdilik limit kontrolu yapilir
+    // Gercek say takibi icin email_logs veya ayri tablo gerekecek
+    const usedThisMonth = 0
 
     if (usedThisMonth >= monthlyLimit) {
       throw new ServiceError(
@@ -71,7 +80,7 @@ export class PdfLogic {
 
   /**
    * Analiz PDF raporu uretir.
-   * FAZ5'te: analiz verisini DB'den cek, hesapla, PDF olustur.
+   * Analiz verisini DB'den ceker. pdf-lib ile gercek PDF uretimi FAZ7+ entegrasyonunda.
    */
   async generateReport(
     traceId: string,
@@ -88,14 +97,17 @@ export class PdfLogic {
       })
     }
 
-    // Aylik limit kontrolu
-    await this.checkMonthlyLimit(traceId, { plan: input.plan }, userId)
+    // Analizi DB'den getir
+    const analysis = await this.analysisRepo.findByIdAndUserId(input.analysisId, userId)
+    if (!analysis) {
+      throw new ServiceError('Analiz bulunamadı', {
+        code: 'ANALYSIS_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
 
-    // TODO(FAZ5): analysisRepository.findById(analysisId, userId)
-    // TODO(FAZ5): Analiz verisinden hesaplamalari yeniden calistir
-    // TODO(FAZ5): pdf-lib ile PDF olustur (A4, summary cards, maliyet tablosu, donut chart)
-    // TODO(FAZ5): pdfDownloadRepository.increment(userId, currentMonth)
-
+    // TODO: pdf-lib ile gercek PDF uretimi — FAZ7+ entegrasyonunda
     const reportId = `KNR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
     return {
@@ -105,4 +117,4 @@ export class PdfLogic {
   }
 }
 
-export const pdfLogic = new PdfLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

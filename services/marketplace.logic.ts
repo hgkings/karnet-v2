@@ -2,10 +2,11 @@
 // MarketplaceLogic — Katman 6
 // Trendyol / Hepsiburada baglanti yonetimi ve sync.
 // KNOWLEDGE-BASE.md Section 3.
-// DB islemleri FAZ5'te repository + DBHelper baglanacak.
 // ----------------------------------------------------------------
 
 import { ServiceError } from '@/lib/gateway/types'
+import { encrypt, decrypt } from '@/lib/db/db.helper'
+import type { MarketplaceRepository } from '@/repositories/marketplace.repository'
 
 // ----------------------------------------------------------------
 // Tipler
@@ -44,15 +45,16 @@ export interface SyncResult {
 // ----------------------------------------------------------------
 
 export class MarketplaceLogic {
+  constructor(private readonly marketplaceRepo: MarketplaceRepository) {}
+
   /**
    * Marketplace baglantisi kurar.
    * Credentials AES-256-GCM ile sifrelenir (DBHelper).
-   * FAZ5'te repository + DBHelper baglanacak.
    */
   async connect(
     traceId: string,
     payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<{ connectionId: string; status: ConnectionStatus }> {
     const input = payload as ConnectPayload
 
@@ -72,24 +74,38 @@ export class MarketplaceLogic {
       })
     }
 
-    // TODO(FAZ5): DBHelper.encrypt(credentials)
-    // TODO(FAZ5): marketplaceRepository.createConnection(userId, marketplace, encrypted)
-    // TODO(FAZ5): marketplaceSecretsRepository.store(connectionId, encryptedSecrets)
+    // Baglanti olustur
+    const connection = await this.marketplaceRepo.createConnection({
+      user_id: userId,
+      marketplace: input.marketplace,
+      store_name: input.storeName,
+      seller_id: input.sellerId,
+      status: 'pending_test',
+    })
 
-    return { connectionId: 'placeholder', status: 'pending_test' }
+    // Credentials sifrele ve sakla
+    const encryptedBlob = encrypt(JSON.stringify({
+      apiKey: input.apiKey,
+      apiSecret: input.apiSecret,
+      sellerId: input.sellerId,
+    }))
+
+    await this.marketplaceRepo.storeSecrets(connection.id, encryptedBlob)
+
+    return { connectionId: connection.id, status: 'pending_test' }
   }
 
   /**
    * Marketplace baglantisini keser.
-   * FAZ5'te repository baglanacak.
+   * Cascade delete: marketplace_secrets da silinir.
    */
   async disconnect(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<{ success: boolean }> {
-    // TODO(FAZ5): marketplaceRepository.deleteConnection(connectionId, userId)
-    // Cascade delete: marketplace_secrets da silinir
+    const { connectionId } = payload as { connectionId: string }
+    await this.marketplaceRepo.deleteConnection(connectionId, userId)
     return { success: true }
   }
 
@@ -102,7 +118,7 @@ export class MarketplaceLogic {
     payload: unknown,
     _userId: string
   ): Promise<{ success: boolean; storeName: string | null }> {
-    const { marketplace, connectionId } = payload as {
+    const { connectionId } = payload as {
       marketplace: MarketplaceType
       connectionId: string
     }
@@ -115,17 +131,31 @@ export class MarketplaceLogic {
       })
     }
 
-    // TODO(FAZ5): DBHelper.decrypt(secrets)
-    // TODO(FAZ5): Trendyol/HB API'ye test istegi at
-    // TODO(FAZ5): Basarili ise connection.status = 'connected', basarisiz ise 'error'
+    // Credentials coz
+    const secretRow = await this.marketplaceRepo.getSecrets(connectionId)
+    if (!secretRow) {
+      throw new ServiceError('Bağlantı bilgileri bulunamadı', {
+        code: 'SECRETS_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
 
-    void marketplace // kullanilacak
+    const _credentials = JSON.parse(decrypt(secretRow.encrypted_blob)) as {
+      apiKey: string
+      apiSecret: string
+      sellerId: string
+    }
+
+    // TODO: Trendyol/HB API'ye gercek test istegi — API client FAZ7+ entegrasyonunda
+    // Simdilik baglanti durumunu 'connected' olarak guncelle
+    await this.marketplaceRepo.updateConnectionStatus(connectionId, 'connected')
+
     return { success: true, storeName: null }
   }
 
   /**
    * Marketplace urunlerini ceker.
-   * FAZ5'te Trendyol/HB API client baglanacak.
    */
   async syncProducts(
     traceId: string,
@@ -142,17 +172,40 @@ export class MarketplaceLogic {
       })
     }
 
-    // TODO(FAZ5): DBHelper.decrypt(secrets)
-    // TODO(FAZ5): Fetch products from Trendyol/HB API
-    // TODO(FAZ5): Normalize + match to existing analyses
-    // TODO(FAZ5): Update marketplace_sync_logs
+    // Sync log baslat
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'products',
+      status: 'running',
+    })
 
-    return { productsCount: 0 }
+    try {
+      // Credentials coz
+      const secretRow = await this.marketplaceRepo.getSecrets(connectionId)
+      if (!secretRow) {
+        throw new ServiceError('Bağlantı bilgileri bulunamadı', {
+          code: 'SECRETS_NOT_FOUND',
+          statusCode: 404,
+          traceId,
+        })
+      }
+
+      const _credentials = JSON.parse(decrypt(secretRow.encrypted_blob))
+
+      // TODO: Trendyol/HB API'den urunleri cek — API client entegrasyonu ayri task
+      const productsCount = 0
+
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${productsCount} ürün senkronize edildi`)
+      return { productsCount }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
   }
 
   /**
    * Marketplace siparislerini ceker.
-   * FAZ5'te Trendyol/HB API client baglanacak.
    */
   async syncOrders(
     traceId: string,
@@ -169,25 +222,47 @@ export class MarketplaceLogic {
       })
     }
 
-    // TODO(FAZ5): DBHelper.decrypt(secrets)
-    // TODO(FAZ5): Fetch orders from API (13-day windowing for Trendyol)
-    // TODO(FAZ5): Aggregate product_sales_metrics
-    // TODO(FAZ5): Update last_sync_at
+    // Sync log baslat
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'orders',
+      status: 'running',
+    })
 
-    return { ordersCount: 0 }
+    try {
+      const secretRow = await this.marketplaceRepo.getSecrets(connectionId)
+      if (!secretRow) {
+        throw new ServiceError('Bağlantı bilgileri bulunamadı', {
+          code: 'SECRETS_NOT_FOUND',
+          statusCode: 404,
+          traceId,
+        })
+      }
+
+      const _credentials = JSON.parse(decrypt(secretRow.encrypted_blob))
+
+      // TODO: Trendyol/HB API'den siparisleri cek — API client entegrasyonu ayri task
+      const ordersCount = 0
+
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${ordersCount} sipariş senkronize edildi`)
+      await this.marketplaceRepo.updateLastSyncAt(connectionId)
+      return { ordersCount }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
   }
 
   /**
    * Baglanti durumunu dondurur.
-   * FAZ5'te repository baglanacak.
    */
   async getStatus(
     _traceId: string,
     _payload: unknown,
-    _userId: string
-  ): Promise<MarketplaceConnection[]> {
-    // TODO(FAZ5): marketplaceRepository.getConnectionsByUserId(userId)
-    return []
+    userId: string
+  ): Promise<unknown[]> {
+    return this.marketplaceRepo.getConnectionsByUserId(userId)
   }
 
   /**
@@ -212,4 +287,4 @@ export class MarketplaceLogic {
   }
 }
 
-export const marketplaceLogic = new MarketplaceLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

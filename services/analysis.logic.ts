@@ -5,8 +5,9 @@
 // ----------------------------------------------------------------
 
 import { ServiceError } from '@/lib/gateway/types'
+import type { AnalysisRepository } from '@/repositories/analysis.repository'
 import { riskLogic } from './risk.logic'
-import { commissionLogic } from './commission.logic'
+import { getCategoryDefaults } from './commission.logic'
 import type { MarketplaceName } from './commission.logic'
 import type { RiskResult } from './risk.logic'
 
@@ -374,6 +375,8 @@ function calculateProAccountingResult(input: ProAccountingInput): ProAccountingR
 // ----------------------------------------------------------------
 
 export class AnalysisLogic {
+  constructor(private readonly analysisRepo: AnalysisRepository) {}
+
   /**
    * Tam kar hesaplamasi yapar — standart mod.
    */
@@ -501,16 +504,31 @@ export class AnalysisLogic {
   async create(
     traceId: string,
     payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<{ id: string }> {
     const { input } = payload as { input: AnalysisInput }
     this.validateInput(input, traceId)
 
-    // TODO(FAZ5): plan limiti kontrol — userLogic.checkPlanLimit(userId)
-    // TODO(FAZ5): analysisRepository.create({ userId, input, outputs, riskScore, riskLevel })
-    // TODO(FAZ5): DB seviyesi constraint ile race condition onle
+    const calculation = calculateProfit(input)
+    const risk = await riskLogic.calculateRisk(traceId, {
+      salePrice: input.salePrice,
+      marginPercent: calculation.marginPercent,
+      returnRatePct: input.returnRatePct,
+      adCostPerSale: input.adCostPerSale,
+      commissionPct: input.commissionPct,
+    }, userId)
 
-    return { id: 'placeholder' }
+    const row = await this.analysisRepo.create({
+      user_id: userId,
+      marketplace: input.marketplace,
+      product_name: input.productName,
+      inputs: input as unknown as Record<string, unknown>,
+      outputs: { ...calculation, _risk_factors: risk.factors } as unknown as Record<string, unknown>,
+      risk_score: risk.score,
+      risk_level: risk.level,
+    })
+
+    return { id: row.id }
   }
 
   /**
@@ -519,11 +537,11 @@ export class AnalysisLogic {
    */
   async getById(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<unknown> {
-    // TODO(FAZ5): analysisRepository.findById(id, userId)
-    return null
+    const { id } = payload as { id: string }
+    return this.analysisRepo.findByIdAndUserId(id, userId)
   }
 
   /**
@@ -533,10 +551,9 @@ export class AnalysisLogic {
   async list(
     _traceId: string,
     _payload: unknown,
-    _userId: string
+    userId: string
   ): Promise<unknown[]> {
-    // TODO(FAZ5): analysisRepository.findByUserId(userId)
-    return []
+    return this.analysisRepo.findByUserId(userId)
   }
 
   /**
@@ -545,10 +562,11 @@ export class AnalysisLogic {
    */
   async delete(
     _traceId: string,
-    _payload: unknown,
-    _userId: string
+    payload: unknown,
+    userId: string
   ): Promise<{ success: boolean }> {
-    // TODO(FAZ5): analysisRepository.delete(id, userId)
+    const { id } = payload as { id: string }
+    await this.analysisRepo.deleteByUserIdAndId(id, userId)
     return { success: true }
   }
 
@@ -559,12 +577,12 @@ export class AnalysisLogic {
     _traceId: string,
     payload: unknown,
     _userId: string
-  ): Promise<{ defaults: ReturnType<typeof commissionLogic.getCategoryDefaults> }> {
+  ): Promise<{ defaults: ReturnType<typeof getCategoryDefaults> }> {
     const { marketplace, category } = payload as {
       marketplace: MarketplaceName
       category?: string
     }
-    const defaults = commissionLogic.getCategoryDefaults(marketplace, category)
+    const defaults = getCategoryDefaults(marketplace, category)
     return { defaults }
   }
 
@@ -590,4 +608,4 @@ export class AnalysisLogic {
   }
 }
 
-export const analysisLogic = new AnalysisLogic()
+// Instance olusturma registry.ts'de yapilir (repo DI)

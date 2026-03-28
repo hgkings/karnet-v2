@@ -96,7 +96,7 @@ Bu dosyalara **Hilmi onayı olmadan** dokunulamaz.
 | FAZ5 | faz5-repository.md | ✅ Tamamlandı | DATABASE-SCHEMA.md |
 | FAZ6 | faz6-api.md | ✅ Tamamlandı | — |
 | FAZ7 | faz7-ui.md | ✅ Tamamlandı | COMPONENT-GUIDE.md |
-| FAZ8 | faz8-payment.md | 🔒 En Son | — |
+| FAZ8 | faz8-payment.md | ✅ Tamamlandı | — |
 
 **Faz tamamlanınca bu tabloyu güncelle: ⏳ → ✅**
 

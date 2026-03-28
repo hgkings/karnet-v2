@@ -2,7 +2,7 @@
 // Service Registry — Repo instance'lari olusturur, servislere inject eder,
 // ServiceBridge'e kaydeder.
 // API route'lar baslamadan once initializeServices() cagrilmali.
-// payment.logic.ts 🔒 — FAZ8'e ait, burada kaydedilmez.
+// payment.logic.ts 🔒 — FAZ8'de eklendi.
 // ----------------------------------------------------------------
 
 import { serviceBridge } from '@/lib/gateway/service.bridge'
@@ -16,6 +16,7 @@ import { SupportRepository } from '@/repositories/support.repository'
 import { MarketplaceRepository } from '@/repositories/marketplace.repository'
 import { CommissionRepository } from '@/repositories/commission.repository'
 import { BlogRepository } from '@/repositories/blog.repository'
+import { PaymentRepository } from '@/repositories/payment.repository'
 
 import { AnalysisLogic } from './analysis.logic'
 import { RiskLogic } from './risk.logic'
@@ -26,6 +27,7 @@ import { NotificationLogic } from './notification.logic'
 import { SupportLogic } from './support.logic'
 import { PdfLogic } from './pdf.logic'
 import { BlogLogic } from './blog.logic'
+import { PaymentLogic } from './payment.logic'
 
 let initialized = false
 
@@ -47,6 +49,7 @@ export function initializeServices(): void {
   const marketplaceRepo = new MarketplaceRepository(supabase)
   const commissionRepo = new CommissionRepository(supabase)
   const blogRepo = new BlogRepository(supabase)
+  const paymentRepo = new PaymentRepository(supabase)
 
   // Service instance'lari (repo DI)
   const analysisLogic = new AnalysisLogic(analysisRepo)
@@ -58,6 +61,7 @@ export function initializeServices(): void {
   const supportLogic = new SupportLogic(supportRepo)
   const pdfLogic = new PdfLogic(analysisRepo)
   const blogLogic = new BlogLogic(blogRepo)
+  const paymentLogic = new PaymentLogic(paymentRepo)
 
   // ServiceBridge'e kaydet
   serviceBridge.register('analysis', analysisLogic as unknown as LogicService)
@@ -70,7 +74,7 @@ export function initializeServices(): void {
   serviceBridge.register('pdf', pdfLogic as unknown as LogicService)
   serviceBridge.register('blog', blogLogic as unknown as LogicService)
 
-  // payment servisi FAZ8'de eklenecek (🔒 korunan)
+  serviceBridge.register('payment', paymentLogic as unknown as LogicService)
 
   initialized = true
 }

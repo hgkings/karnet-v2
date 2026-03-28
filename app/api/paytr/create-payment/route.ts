@@ -7,7 +7,7 @@ import { requireAuth, callGateway, errorResponse } from '@/lib/api/helpers'
 import { z } from 'zod'
 
 const CreatePaymentSchema = z.object({
-  planId: z.enum(['starter_monthly', 'starter_yearly', 'pro_monthly', 'pro_yearly']),
+  planId: z.enum(['starter_monthly', 'starter_yearly', 'pro_monthly', 'pro_yearly', 'test_1tl']),
 })
 
 export async function POST(request: Request) {

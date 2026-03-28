@@ -1,49 +1,38 @@
-"use client"
+'use client';
 
-import { useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { Navbar } from "./navbar"
-import { Sidebar } from "./sidebar"
-import { createClient } from "@/lib/supabase/client"
-
-interface ProInfo {
-  isPro: boolean
-  planLabel?: string
-  expiresAt?: string | null
-  remainingDays?: number
-}
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { Navbar } from './navbar';
+import { Sidebar } from './sidebar';
+import { useAuth } from '@/contexts/auth-context';
 
 interface DashboardLayoutProps {
-  children: React.ReactNode
-  userEmail?: string
-  proInfo?: ProInfo
+  children: React.ReactNode;
 }
 
-export function DashboardLayout({ children, userEmail, proInfo }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const router = useRouter()
+export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { loading } = useAuth();
 
-  const handleLogout = useCallback(async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/auth")
-  }, [router])
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} proInfo={proInfo} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Navbar
-          onMenuClick={() => setSidebarOpen(true)}
-          userEmail={userEmail}
-          onLogout={handleLogout}
-        />
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
     </div>
-  )
+  );
 }

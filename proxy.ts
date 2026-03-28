@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 // ----------------------------------------------------------------
-// Next.js Middleware — Auth guard + session refresh
+// Next.js Proxy (v16) — Auth guard + session refresh
 // 🔒 Bu dosya FAZ2 sonrasi korunur. Degisiklik icin Hilmi onayı gerekli.
 // ----------------------------------------------------------------
 
@@ -52,7 +52,7 @@ function isAuthCallback(pathname: string): boolean {
   return pathname === '/auth/callback'
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Statik dosyalar — atla

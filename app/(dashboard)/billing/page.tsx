@@ -67,12 +67,8 @@ function BillingContent() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [profileRes, plansRes] = await Promise.all([
-        apiClient.get<ProfileData>("/api/user/profile"),
-        apiClient.get<PlanOption[]>("/api/analyses"), // plans endpoint placeholder
-      ])
+      const profileRes = await apiClient.get<ProfileData>("/api/user/profile")
       setProfile((profileRes.data ?? null) as ProfileData | null)
-      void plansRes
     } catch {
       toast.error("Profil yüklenirken hata oluştu.")
     } finally {
@@ -124,21 +120,15 @@ function BillingContent() {
 
   useEffect(() => { void fetchData() }, [fetchData])
 
-  // Statik plan listesi (gateway yerine)
-  const isTestMode = process.env.NEXT_PUBLIC_TEST_MODE === "true"
-
+  // Plan listesi
   useEffect(() => {
-    const allPlans: PlanOption[] = [
+    setPlans([
       { id: "starter_monthly", name: "Starter Aylık", plan: "starter", isPro: false, amountTry: 399, durationDays: 30 },
       { id: "starter_yearly", name: "Starter Yıllık", plan: "starter", isPro: false, amountTry: 3990, durationDays: 365 },
       { id: "pro_monthly", name: "Pro Aylık", plan: "pro", isPro: true, amountTry: 799, durationDays: 30 },
       { id: "pro_yearly", name: "Pro Yıllık", plan: "pro", isPro: true, amountTry: 7990, durationDays: 365 },
-    ]
-    if (isTestMode) {
-      allPlans.push({ id: "test_1tl", name: "Test Planı", plan: "pro", isPro: true, amountTry: 1, durationDays: 1 })
-    }
-    setPlans(allPlans)
-  }, [isTestMode])
+    ])
+  }, [])
 
   async function handlePurchase(planId: string) {
     setPurchasing(planId)

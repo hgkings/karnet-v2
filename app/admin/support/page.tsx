@@ -37,7 +37,7 @@ export default function AdminSupportPage() {
   async function fetchTickets() {
     setLoading(true)
     try {
-      const res = await apiClient.get<Ticket[]>("/api/admin/stats")
+      const res = await apiClient.get<Ticket[]>("/api/admin/support/tickets")
       setTickets((res.data ?? []) as Ticket[])
     } catch {
       toast.error("Talepler yüklenirken hata oluştu.")

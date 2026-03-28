@@ -89,8 +89,8 @@ Bu dosyalara **Hilmi onayı olmadan** dokunulamaz.
 
 | Faz | Dosya | Durum | Hangi Context Okunur |
 |-----|-------|-------|---------------------|
-| FAZ1 | faz1-skeleton.md | ⏳ Bekliyor | ENV-TEMPLATE.md, ERROR-REPORT.md |
-| FAZ2 | faz2-infrastructure.md | ⏳ Bekliyor | — |
+| FAZ1 | faz1-skeleton.md | ✅ Tamamlandı | ENV-TEMPLATE.md, ERROR-REPORT.md |
+| FAZ2 | faz2-infrastructure.md | ✅ Tamamlandı | — |
 | FAZ3 | faz3-gateway.md | ⏳ Bekliyor | — |
 | FAZ4 | faz4-services.md | ⏳ Bekliyor | KNOWLEDGE-BASE.md |
 | FAZ5 | faz5-repository.md | ⏳ Bekliyor | DATABASE-SCHEMA.md |

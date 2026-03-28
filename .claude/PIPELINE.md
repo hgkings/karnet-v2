@@ -74,7 +74,7 @@ Onay için "go" yazın.
 ## INBOX
 > Yeni görevler buraya. En öncelikli en üstte.
 
-- [ ] #001 | SETUP | FAZ1 — Proje iskeleti kur
+- [ ] #003 | SETUP | FAZ3 — Gateway Katmanı (GatewayAdapter, GlobalService, ServiceBridge)
 
 ---
 
@@ -96,6 +96,8 @@ Onay için "go" yazın.
 > Tamamlanan görevler. Her çeyrekte arşivle.
 
 - [x] #000 | SETUP | Tüm .claude/ MD dosyaları yazıldı (2026-03-28)
+- [x] #001 | SETUP | FAZ1 — Proje iskeleti kuruldu (2026-03-28)
+- [x] #002 | SETUP | FAZ2 — Altyapı katmanı: Supabase client/server, rate-limit, email, middleware (2026-03-28)
 
 ---
 
@@ -123,3 +125,5 @@ Onay için "go" yazın.
 | # | Tür | Özet | Tarih |
 |---|-----|------|-------|
 | 000 | SETUP | Proje MD dosyaları oluşturuldu | 2026-03-28 |
+| 001 | SETUP | FAZ1 — Proje iskeleti (Next.js 15, Tailwind v4, shadcn/ui, klasör yapısı) | 2026-03-28 |
+| 002 | SETUP | FAZ2 — Altyapı (Supabase client/server, rate-limit, email, middleware) | 2026-03-28 |

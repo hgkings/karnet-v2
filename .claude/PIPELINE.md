@@ -74,7 +74,7 @@ Onay için "go" yazın.
 ## INBOX
 > Yeni görevler buraya. En öncelikli en üstte.
 
-- [ ] #010 | SETUP | FAZ7c — Marketing + Admin + Destek sayfaları
+- [ ] #011 | SETUP | FAZ8 — Ödeme entegrasyonu (🔒 Hilmi onayı gerekli)
 
 ---
 
@@ -105,6 +105,7 @@ Onay için "go" yazın.
 - [x] #007 | REFACTOR | Service-Repository DI bağlantısı: 43 TODO(FAZ5) kaldırıldı, 8 servis + registry refactor (2026-03-28)
 - [x] #008 | SETUP | FAZ7a — Layout + Auth: navbar, sidebar, footer, dashboard-layout, 4 auth sayfa, callback, shared components (2026-03-28)
 - [x] #009 | SETUP | FAZ7b — Dashboard + Analiz: dashboard, analysis list/detail, products, marketplace, settings, billing (2026-03-28)
+- [x] #010 | SETUP | FAZ7c — Marketing + Admin + Destek: landing, pricing, blog, hakkimizda, iletisim, support, admin (6 sayfa) (2026-03-28)
 
 ---
 
@@ -141,3 +142,4 @@ Onay için "go" yazın.
 | 007 | REFACTOR | Service-Repository DI (43 TODO kaldirma, 8 servis + registry refactor) | 2026-03-28 |
 | 008 | SETUP | FAZ7a — Layout + Auth (navbar, sidebar, 4 auth sayfa, callback, shared components) | 2026-03-28 |
 | 009 | SETUP | FAZ7b — Dashboard + Analiz (dashboard, analysis, products, marketplace, settings, billing + components) | 2026-03-28 |
+| 010 | SETUP | FAZ7c — Marketing + Admin + Destek (landing, pricing, blog, hakkimizda, iletisim, support, admin 6 sayfa) | 2026-03-28 |

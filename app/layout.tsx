@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { AuthProvider } from "@/contexts/auth-context";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -31,12 +27,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="tr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="tr" className={`dark ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        {children}
+        <div className="aurora-bg">
+          <div className="aurora-orb orb-1" />
+          <div className="aurora-orb orb-2" />
+          <div className="aurora-orb orb-3" />
+        </div>
+
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+
         <Toaster
           position="top-right"
           richColors

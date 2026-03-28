@@ -2,57 +2,46 @@ import {
   LayoutDashboard,
   PlusCircle,
   Package,
-  TrendingDown,
-  Wallet,
+  Target,
+  Landmark,
   Store,
+  User,
+  Settings,
+  Crown,
   FileText,
   Upload,
-  Percent,
   CreditCard,
-  User,
-  HelpCircle,
-  Settings,
+  MessageSquare,
   type LucideIcon,
-} from "lucide-react"
+} from 'lucide-react';
 
 export interface NavItem {
-  href: string
-  label: string
-  icon: LucideIcon
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  restricted?: boolean;
+  highlight?: boolean;
 }
 
-export interface NavGroup {
-  label: string
-  items: NavItem[]
-}
+export const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Yeni Analiz', href: '/analysis/new', icon: PlusCircle },
+  { label: 'Ürünler', href: '/products', icon: Package },
+  { label: 'Başabaş', href: '/break-even', icon: Target, restricted: true },
+  { label: 'Nakit Planı', href: '/cash-plan', icon: Landmark, restricted: true },
+  { label: 'Pazaryeri', href: '/marketplace', icon: Store, restricted: true },
+];
 
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "MENÜ",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/analysis", label: "Yeni Analiz", icon: PlusCircle },
-      { href: "/products", label: "Ürünler", icon: Package },
-      { href: "/breakeven", label: "Başabaş", icon: TrendingDown },
-      { href: "/cashplan", label: "Nakit Planı", icon: Wallet },
-      { href: "/marketplace", label: "Pazaryeri", icon: Store },
-    ],
-  },
-  {
-    label: "HIZLI İŞLEMLER",
-    items: [
-      { href: "/pdf", label: "PDF Rapor", icon: FileText },
-      { href: "/import", label: "CSV İçe Aktar", icon: Upload },
-      { href: "/commissions", label: "Komisyon Oranları", icon: Percent },
-      { href: "/pricing", label: "Fiyatlandırma", icon: CreditCard },
-    ],
-  },
-  {
-    label: "HESAP",
-    items: [
-      { href: "/settings", label: "Profil", icon: User },
-      { href: "/support", label: "Destek", icon: HelpCircle },
-      { href: "/settings", label: "Ayarlar", icon: Settings },
-    ],
-  },
-]
+export const BOTTOM_NAV_ITEMS: NavItem[] = [
+  { label: 'Premium', href: '/pricing', icon: Crown, highlight: true },
+  { label: 'Profil', href: '/account', icon: User },
+  { label: 'Destek', href: '/support', icon: MessageSquare },
+  { label: 'Ayarlar', href: '/settings', icon: Settings },
+];
+
+export const QUICK_ACTIONS: NavItem[] = [
+  { label: 'PDF Rapor', href: '/dashboard', icon: FileText },
+  { label: 'CSV İçe Aktar', href: '/products', icon: Upload },
+  { label: 'Komisyon Oranları', href: '/settings/commission-rates', icon: Store },
+  { label: 'Fiyatlandırma', href: '/pricing', icon: CreditCard },
+];

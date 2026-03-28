@@ -2,86 +2,192 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield } from 'lucide-react';
+import { Crown, FileText, Upload, CreditCard, Shield, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/auth-context';
-import { NAV_GROUPS } from '@/config/navigation';
+import { NAV_ITEMS, BOTTOM_NAV_ITEMS } from '@/config/navigation';
+import { isProUser } from '@/utils/access';
 import { KarnetLogo } from '@/components/shared/KarnetLogo';
 import { ProStatusCard } from '@/components/shared/ProStatusCard';
 
 function SidebarContent() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const isPro = user ? isProUser(user) : false;
 
   return (
-    <div className="flex flex-col h-full bg-[rgba(255,255,255,0.01)]">
+    <div className="flex h-full w-full flex-col bg-[rgba(255,255,255,0.01)]">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5">
         <KarnetLogo size={36} />
         <span className="font-bold text-lg text-foreground tracking-tight">Kârnet</span>
       </div>
 
-      {/* Pro status */}
-      <div className="px-4 mb-4">
-        <ProStatusCard />
-      </div>
+      <div className="flex h-full flex-col px-3 py-2 gap-6 overflow-y-auto scrollbar-thin">
 
-      {/* Nav groups */}
-      <nav className="flex-1 overflow-y-auto px-3 space-y-5 scrollbar-thin">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-              {group.label}
-            </p>
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        {/* Pro Status */}
+        <div className="w-full">
+          <ProStatusCard />
+        </div>
+
+        {/* Main Nav */}
+        <div>
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-[rgba(255,255,255,0.3)]">
+            Menü
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {NAV_ITEMS.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isLocked = item.restricted && !isPro;
+
+              if (isLocked) {
+                return (
+                  <div key={item.href} className="group relative">
+                    <div className="absolute right-2.5 top-2.5 z-10 pointer-events-none">
+                      <div className="bg-amber-900/40 text-amber-400 p-0.5 rounded-full">
+                        <Crown className="h-2.5 w-2.5" />
+                      </div>
+                    </div>
+                    <Link
+                      href="/pricing"
+                      className="flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium text-[rgba(255,255,255,0.3)] hover:bg-white/5 transition-all duration-150"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0 opacity-50" />
+                      <span className="opacity-60">{item.label}</span>
+                    </Link>
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'group flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                    isActive
+                      ? 'bg-amber-500/10 border border-amber-500/15 text-amber-400 font-semibold'
+                      : 'text-[rgba(255,255,255,0.5)] hover:bg-white/5 hover:text-white border border-transparent'
+                  )}
+                >
+                  <item.icon className={cn(
+                    'h-4 w-4 shrink-0 transition-colors duration-150',
+                    isActive ? 'text-amber-400' : 'text-[rgba(255,255,255,0.5)] group-hover:text-white'
+                  )} />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div>
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-[rgba(255,255,255,0.3)]">
+            Hızlı İşlemler
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {[
+              { href: '/dashboard', icon: FileText, label: 'PDF Rapor' },
+              { href: '/products', icon: Upload, label: 'CSV İçe Aktar' },
+              { href: '/settings/commission-rates', icon: Store, label: 'Komisyon Oranları' },
+              { href: '/pricing', icon: CreditCard, label: 'Fiyatlandırma' },
+            ].map((action) => (
+              <Link
+                key={action.href + action.label}
+                href={action.href}
+                className="group flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-xs font-medium text-[rgba(255,255,255,0.5)] hover:bg-white/5 hover:text-white transition-all duration-150"
+              >
+                <div className="p-1 rounded-lg bg-white/[0.03] group-hover:bg-white/[0.06] border border-[rgba(255,255,255,0.06)] transition-all">
+                  <action.icon className="h-3 w-3" />
+                </div>
+                <span>{action.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Bottom Nav */}
+        <div>
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-[rgba(255,255,255,0.3)]">
+            Hesap
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {BOTTOM_NAV_ITEMS.map((item) => {
+              const isActive = pathname === item.href;
+              const isPremium = item.label === 'Premium';
+
+              if (isPremium) {
+                if (isPro) return null;
                 return (
                   <Link
-                    key={item.href + item.label}
+                    key={item.href}
                     href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-amber-500/10 border border-amber-500/15 text-amber-400'
-                        : 'text-[rgba(255,255,255,0.5)] hover:text-foreground hover:bg-white/5 border border-transparent'
-                    )}
+                    className="group relative block overflow-hidden rounded-2xl p-3.5 text-sm font-semibold transition-all duration-200 mb-1"
+                    style={{
+                      background: 'rgba(217,119,6,0.05)',
+                      border: '1px solid rgba(217,119,6,0.12)',
+                    }}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    {item.label}
+                    <p className="text-amber-400 font-semibold text-sm mb-1">Pro&apos;ya Yükselt</p>
+                    <p className="text-[rgba(255,255,255,0.3)] text-xs mb-3">Tüm özelliklere eriş</p>
+                    <div
+                      className="w-full text-center py-1.5 rounded-lg text-xs font-semibold text-white"
+                      style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }}
+                    >
+                      Planları Gör
+                    </div>
                   </Link>
                 );
-              })}
-            </div>
-          </div>
-        ))}
+              }
 
-        {/* Admin link */}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'group flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                    isActive
+                      ? 'bg-amber-500/10 border border-amber-500/15 text-amber-400 font-semibold'
+                      : 'text-[rgba(255,255,255,0.5)] hover:bg-white/5 hover:text-white border border-transparent'
+                  )}
+                >
+                  <item.icon className={cn(
+                    'h-4 w-4 shrink-0 transition-colors duration-150',
+                    isActive ? 'text-amber-400' : 'text-[rgba(255,255,255,0.5)] group-hover:text-white'
+                  )} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Admin */}
         {user?.plan === 'admin' && (
-          <div>
-            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-              YÖNETİM
-            </p>
-            <Link
-              href="/admin"
-              className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors border border-transparent',
-                pathname.startsWith('/admin')
-                  ? 'bg-amber-500/10 border-amber-500/15 text-amber-400'
-                  : 'text-[rgba(255,255,255,0.5)] hover:text-foreground hover:bg-white/5'
-              )}
-            >
-              <Shield className="h-4 w-4 shrink-0" />
-              Admin Panel
-            </Link>
-          </div>
+          <Link
+            href="/admin"
+            className={cn(
+              'flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-all border border-transparent',
+              pathname.startsWith('/admin')
+                ? 'bg-amber-500/10 border-amber-500/15 text-amber-400'
+                : 'text-[rgba(255,255,255,0.5)] hover:bg-white/5 hover:text-white'
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Admin Panel
+          </Link>
         )}
-      </nav>
 
-      {/* Version */}
-      <div className="px-5 py-3 text-[10px] text-muted-foreground/40">
-        v2.0.0
+        {/* Version */}
+        <div className="text-[9px] text-[rgba(255,255,255,0.15)] font-mono text-center pb-1">
+          v{process.env.NEXT_PUBLIC_BUILD_ID || '2.0.0'}
+        </div>
+
       </div>
     </div>
   );

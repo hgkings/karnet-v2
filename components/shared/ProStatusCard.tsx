@@ -1,9 +1,16 @@
 'use client';
 
+import { Crown, Info, Calendar, Clock, CreditCard, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { Crown } from 'lucide-react';
-import Link from 'next/link';
 import { isProUser } from '@/utils/access';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { buttonVariants } from '@/components/ui/button';
 
 export function ProStatusCard() {
   const { user } = useAuth();
@@ -12,68 +19,141 @@ export function ProStatusCard() {
 
   const isPro = isProUser(user);
 
-  if (isPro) {
-    const expiresAt = user.proExpiresAt ? new Date(user.proExpiresAt) : null;
-    const daysLeft = expiresAt
-      ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      : null;
-
+  if (!isPro) {
     return (
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="w-full rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-semibold text-amber-400">KÂRNET PRO</span>
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className="text-sm font-semibold">Free Plan</span>
           </div>
-          <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
-            AKTİF
+          <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-muted text-muted-foreground">
+            Sınırlı
           </span>
         </div>
-        {expiresAt && (
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <div className="flex justify-between">
-              <span>Bitiş:</span>
-              <span className="text-foreground font-medium">
-                {expiresAt.toLocaleDateString('tr-TR')}
-              </span>
-            </div>
-            {daysLeft !== null && (
-              <div className="flex justify-between">
-                <span>Kalan:</span>
-                <span className="text-foreground font-medium">{daysLeft} gün</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span>Yenileme:</span>
-              <span className="text-foreground font-medium">Manuel</span>
-            </div>
-          </div>
-        )}
+
+        <p className="text-xs text-muted-foreground mb-4">
+          Tüm özelliklere erişmek ve sınırları kaldırmak için Pro&apos;ya geçin.
+        </p>
+
         <Link
-          href="/billing"
-          className="block w-full text-center py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }}
+          href="/pricing"
+          className={cn(buttonVariants({ size: 'sm' }), 'w-full bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary/90 text-primary-foreground shadow-sm')}
         >
-          Planı Yönet
+          Pro&apos;ya Geç
         </Link>
       </div>
     );
   }
 
+  // Bitiş tarihi ve Kalan Gün hesapla
+  let expireLabel = 'Ayarlanmadı';
+  let daysRemaining: number | null = null;
+  const renewalLabel = user.proRenewal === true ? 'Otomatik' : 'Manuel';
+
+  if (user.proExpiresAt) {
+    const d = new Date(user.proExpiresAt);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      expireLabel = `${day}.${month}.${year}`;
+
+      const diff = d.getTime() - new Date().getTime();
+      daysRemaining = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    }
+  }
+
   return (
-    <Link
-      href="/billing"
-      className="block rounded-2xl p-3.5 text-sm font-semibold transition-all duration-200 hover:opacity-90"
-      style={{ background: 'rgba(217,119,6,0.05)', border: '1px solid rgba(217,119,6,0.12)' }}
-    >
-      <p className="text-amber-400 font-semibold text-sm mb-1">Pro&apos;ya Yükselt</p>
-      <p className="text-muted-foreground text-xs mb-3">Tüm özelliklere eriş</p>
-      <div
-        className="w-full text-center py-1.5 rounded-lg text-xs font-semibold text-white"
-        style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }}
-      >
-        Planları Gör
+    <div className="relative w-full rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 shadow-sm transition-all hover:shadow-md">
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500/20 ring-2 ring-emerald-500/20 shadow-inner">
+            <Crown className="w-4.5 h-4.5 text-emerald-400 fill-emerald-400" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-extrabold uppercase tracking-wider text-emerald-300 leading-none">
+              Kârnet Pro
+            </span>
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border border-emerald-700 bg-emerald-900/50 text-emerald-400">
+                Aktif
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Popover>
+          <PopoverTrigger>
+            <button className="text-emerald-400/50 hover:text-emerald-300 transition-colors focus:outline-none">
+              <Info className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3 text-xs" align="end" side="right" sideOffset={8}>
+            <p className="font-semibold mb-1">Pro Plan Özellikleri</p>
+            <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground">
+              <li>Sınırsız analiz</li>
+              <li>Pazaryeri entegrasyonları</li>
+              <li>Toplu CSV / PDF işlemleri</li>
+              <li>Premium destek</li>
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
-    </Link>
+
+      {/* Info Rows */}
+      <div className="space-y-2.5 mb-4 bg-black/20 rounded-xl p-3 border border-emerald-800/30">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-emerald-300/70">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Bitiş:</span>
+          </div>
+          <span className="font-medium text-emerald-100">
+            {expireLabel}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-emerald-300/70">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Kalan:</span>
+          </div>
+          <span className="font-medium text-emerald-100">
+            {daysRemaining !== null ? `${daysRemaining} gün` : '—'}
+          </span>
+        </div>
+
+        <div className="flex flex-col text-xs">
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-1.5 text-emerald-300/70">
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Yenileme:</span>
+            </div>
+            <span className="font-medium text-emerald-100">
+              {renewalLabel}
+            </span>
+          </div>
+          {renewalLabel === 'Manuel' && (
+            <p className="text-[9px] text-emerald-400/50 italic text-right">
+              Süre bitince tekrar satın almanız gerekir.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <Link
+          href="/pricing"
+          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'flex-1 bg-black/20 border-emerald-700/50 hover:bg-emerald-900/40 text-emerald-200 shadow-sm transition-all h-8 text-xs')}
+        >
+          Planı Yönet
+        </Link>
+      </div>
+    </div>
   );
 }

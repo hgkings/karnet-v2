@@ -143,16 +143,15 @@ function BillingContent() {
   async function handlePurchase(planId: string) {
     setPurchasing(planId)
     try {
-      const res = await apiClient.post<{ paymentUrl: string; token: string }>(
+      const res = await apiClient.post<{ paymentLink: string; paymentId: string; merchantOid: string }>(
         "/api/paytr/create-payment",
         { planId }
       )
-      const data = res.data as { paymentUrl: string; token: string } | undefined
-      if (res.success && data?.paymentUrl) {
+      const data = res.data as { paymentLink: string; paymentId: string; merchantOid: string } | undefined
+      if (res.success && data?.paymentLink) {
         // PayTR odeme sayfasini yeni sekmede ac
-        window.open(data.paymentUrl, "_blank")
-        // Mevcut sayfayi dogrulama moduna gecir
-        window.location.href = `/billing?token=${data.token}`
+        window.open(data.paymentLink, "_blank")
+        toast.success("Ödeme sayfası açıldı. Ödemenizi tamamladıktan sonra bu sayfa güncellenecektir.")
       } else {
         toast.error(res.error ?? "Ödeme başlatılamadı.")
       }

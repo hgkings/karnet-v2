@@ -124,29 +124,18 @@ export class PaymentLogic {
   constructor(private readonly paymentRepo: PaymentRepository) {}
 
   /**
-   * Odeme olusturur — PayTR Link API'ye token ister.
+   * Odeme olusturur — statik PayTR link dondurur.
+   * Env'den plan bazli link okunur, DB'ye kayit olusturulur.
    */
   async createPayment(
     traceId: string,
     payload: unknown,
     userId: string
-  ): Promise<{ paymentId: string; paymentUrl: string; token: string }> {
+  ): Promise<{ paymentId: string; paymentLink: string; merchantOid: string }> {
     const { planId, userEmail } = payload as { planId: string; userEmail: string }
 
-    console.log('[payment.createPayment] START', { planId, userEmail, userId, traceId })
-    console.log('[payment.createPayment] env check:', {
-      PAYTR_MERCHANT_ID: !!process.env.PAYTR_MERCHANT_ID,
-      PAYTR_MERCHANT_KEY: !!process.env.PAYTR_MERCHANT_KEY,
-      PAYTR_MERCHANT_SALT: !!process.env.PAYTR_MERCHANT_SALT,
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? '(not set)',
-    })
-    console.log('[payment.createPayment] available plans:', Object.keys(PLANS))
-
     const planConfig = PLANS[planId]
-    console.log('[payment.createPayment] planConfig for', planId, ':', planConfig ?? 'NOT FOUND')
-
     if (!planConfig) {
-      console.error('[payment.createPayment] FAIL: plan not found in PLANS map for planId:', planId)
       throw new ServiceError('Geçersiz plan seçimi', {
         code: 'INVALID_PLAN',
         statusCode: 400,
@@ -154,11 +143,27 @@ export class PaymentLogic {
       })
     }
 
+    // Statik PayTR link'i env'den al
+    const linkEnvMap: Record<string, string | undefined> = {
+      starter_monthly: process.env.PAYTR_LINK_STARTER_MONTHLY,
+      starter_yearly: process.env.PAYTR_LINK_STARTER_YEARLY,
+      pro_monthly: process.env.PAYTR_LINK_PRO_MONTHLY,
+      pro_yearly: process.env.PAYTR_LINK_PRO_YEARLY,
+      test_1tl: process.env.PAYTR_LINK_TEST_1TL,
+    }
+
+    const paymentLink = linkEnvMap[planId]
+    if (!paymentLink) {
+      throw new ServiceError('Ödeme bağlantısı yapılandırılmamış. Lütfen yöneticiyle iletişime geçin.', {
+        code: 'PAYMENT_LINK_NOT_CONFIGURED',
+        statusCode: 500,
+        traceId,
+      })
+    }
+
     const token = generateToken()
     const merchantOid = generateMerchantOid()
     const tokenExpiresAt = new Date(Date.now() + TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString()
-
-    console.log('[payment.createPayment] creating DB record...', { merchantOid, amountTry: planConfig.amountTry })
 
     // DB'ye odeme kaydi olustur
     const payment = await this.paymentRepo.createPayment({
@@ -171,74 +176,10 @@ export class PaymentLogic {
       email: userEmail,
     })
 
-    console.log('[payment.createPayment] DB record created:', payment.id)
-
-    // PayTR Link API'ye istek at
-    const merchantId = getMerchantId()
-    const merchantKey = getMerchantKey()
-    const merchantSalt = getMerchantSalt()
-
-    console.log('[payment.createPayment] PayTR credentials loaded, calling Link API...')
-
-    const amountKurus = planConfig.amountTry * 100 // TL → kurus
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.xn--krnet-3qa.com').replace(/\/+$/, '')
-    const callbackUrl = `${baseUrl}/api/paytr/callback`
-
-    // PayTR hash: merchant_id + merchant_oid + amount + salt
-    const hashStr = `${merchantId}${merchantOid}${amountKurus}${merchantSalt}`
-    const paytrToken = createHmac('sha256', merchantKey)
-      .update(hashStr)
-      .digest('base64')
-
-    // PayTR Link API
-    const paytrBody = new URLSearchParams({
-      merchant_id: merchantId,
-      merchant_oid: merchantOid,
-      email: userEmail,
-      payment_amount: String(amountKurus),
-      paytr_token: paytrToken,
-      currency: 'TL',
-      merchant_ok_url: `${baseUrl}/billing?paymentId=${payment.id}&token=${token}`,
-      merchant_fail_url: `${baseUrl}/billing?error=payment_failed`,
-      callback_link: callbackUrl,
-      lang: 'tr',
-      payment_type: 'link',
-      link_type: '1',
-    })
-
-    console.log('[payment.createPayment] PayTR request URL: https://www.paytr.com/odeme/api/link/create')
-    console.log('[payment.createPayment] PayTR request params (no secrets):', {
-      merchant_oid: merchantOid,
-      email: userEmail,
-      payment_amount: String(amountKurus),
-      currency: 'TL',
-      callback_link: callbackUrl,
-    })
-
-    const paytrResponse = await fetch('https://www.paytr.com/odeme/api/link/create', {
-      method: 'POST',
-      body: paytrBody,
-    })
-
-    const paytrResult = await paytrResponse.json() as { status: string; link?: string; reason?: string }
-
-    console.log('[payment.createPayment] PayTR response:', { status: paytrResult.status, hasLink: !!paytrResult.link, reason: paytrResult.reason })
-
-    if (paytrResult.status !== 'success' || !paytrResult.link) {
-      console.error('[payment.createPayment] FAIL: PayTR rejected:', paytrResult)
-      throw new ServiceError('Ödeme bağlantısı oluşturulamadı. Lütfen tekrar deneyin.', {
-        code: 'PAYTR_LINK_FAILED',
-        statusCode: 502,
-        traceId,
-      })
-    }
-
-    console.log('[payment.createPayment] SUCCESS — paymentUrl received')
-
     return {
       paymentId: payment.id,
-      paymentUrl: paytrResult.link,
-      token,
+      paymentLink,
+      merchantOid,
     }
   }
 

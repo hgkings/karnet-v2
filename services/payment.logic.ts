@@ -55,6 +55,14 @@ const PLANS: Record<string, PlanConfig> = {
     amountTry: 7990,
     durationDays: 365,
   },
+  test_1tl: {
+    id: 'test_1tl',
+    name: 'Test Planı',
+    plan: 'pro',
+    isPro: true,
+    amountTry: 1,
+    durationDays: 1,
+  },
 }
 
 const TOKEN_EXPIRY_MINUTES = 15

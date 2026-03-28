@@ -1,0 +1,470 @@
+'use client';
+
+import Link from 'next/link';
+import { useState, useMemo } from 'react';
+import type { DashboardAnalysis } from '@/types/dashboard';
+import { getMarketplaceLabel } from '@/lib/marketplace-data';
+import { formatCurrency, formatPercent } from '@/components/shared/format';
+import { RiskBadge } from '@/components/shared/risk-badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Eye,
+  Trash2,
+  Pencil,
+  Search,
+  Filter,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ProductsTableProps {
+  analyses: DashboardAnalysis[];
+  onDelete?: (id: string) => void;
+}
+
+type SortField = 'monthly_net_profit' | 'margin_pct' | 'risk_score' | 'created_at';
+type SortOrder = 'asc' | 'desc';
+
+export function ProductsTable({ analyses, onDelete }: ProductsTableProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [marketplaceFilter, setMarketplaceFilter] = useState<string>('all');
+  const [riskFilter, setRiskFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const [sortField, setSortField] = useState<SortField>('monthly_net_profit');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const filteredAndSortedData = useMemo(() => {
+    let data = [...analyses];
+
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      data = data.filter(
+        (a) =>
+          a.input.product_name.toLowerCase().includes(lower) ||
+          getMarketplaceLabel(a.input.marketplace).toLowerCase().includes(lower)
+      );
+    }
+
+    if (marketplaceFilter !== 'all') {
+      data = data.filter((a) => a.input.marketplace === marketplaceFilter);
+    }
+    if (riskFilter !== 'all') {
+      data = data.filter((a) => a.risk.level === riskFilter);
+    }
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'profitable') {
+        data = data.filter((a) => a.result.monthly_net_profit > 0);
+      } else if (statusFilter === 'loss') {
+        data = data.filter((a) => a.result.monthly_net_profit <= 0);
+      } else if (statusFilter === 'pareto_80') {
+        const profitable = [...analyses]
+          .filter((a) => a.result.monthly_net_profit > 0)
+          .sort((a, b) => b.result.monthly_net_profit - a.result.monthly_net_profit);
+        const totalProfit = profitable.reduce((sum, a) => sum + a.result.monthly_net_profit, 0);
+        const threshold = totalProfit * 0.8;
+        let currentSum = 0;
+        const topIds = new Set<string>();
+        for (const p of profitable) {
+          currentSum += p.result.monthly_net_profit;
+          topIds.add(p.id);
+          if (currentSum >= threshold) break;
+        }
+        data = data.filter((a) => topIds.has(a.id));
+      }
+    }
+
+    data.sort((a, b) => {
+      let valA = 0;
+      let valB = 0;
+      switch (sortField) {
+        case 'monthly_net_profit':
+          valA = a.result.monthly_net_profit;
+          valB = b.result.monthly_net_profit;
+          break;
+        case 'margin_pct':
+          valA = a.result.margin_pct;
+          valB = b.result.margin_pct;
+          break;
+        case 'risk_score':
+          valA = a.risk.score;
+          valB = b.risk.score;
+          break;
+        case 'created_at':
+          valA = new Date(a.createdAt).getTime();
+          valB = new Date(b.createdAt).getTime();
+          break;
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return data;
+  }, [analyses, searchTerm, marketplaceFilter, riskFilter, statusFilter, sortField, sortOrder]);
+
+  const totalItems = filteredAndSortedData.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filteredAndSortedData.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field)
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />;
+    return (
+      <ArrowUpDown
+        className={cn(
+          'ml-1 h-3 w-3 transition-transform',
+          sortOrder === 'desc' ? 'text-primary' : 'text-primary rotate-180'
+        )}
+      />
+    );
+  };
+
+  if (analyses.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.02)] p-12 text-center">
+        <div className="rounded-full bg-primary/10 p-4 mb-4">
+          <Search className="h-8 w-8 text-primary/60" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground">Henüz ürün analizi yok</h3>
+        <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+          İlk ürününüzü analiz ederek karlılık durumunu ve risk raporunu görebilirsiniz.
+        </p>
+        <Link href="/analysis/new" className="mt-6">
+          <Button className="rounded-xl h-11 px-8 hover:scale-105 transition-transform">
+            Yeni Analiz Başlat
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-[rgba(255,255,255,0.03)] p-4 rounded-xl border border-[rgba(255,255,255,0.06)]">
+        <div className="relative w-full md:max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Ürün adı veya pazaryeri ara..."
+            className="pl-9 h-10 bg-[rgba(255,255,255,0.04)] border-transparent focus:border-amber-500/20 focus:bg-[rgba(255,255,255,0.06)] transition-all"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={marketplaceFilter} onValueChange={(v) => setMarketplaceFilter(v ?? 'all')}>
+            <SelectTrigger className="h-9 w-[140px] text-xs">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Filter className="h-3.5 w-3.5" />
+                <SelectValue placeholder="Pazaryeri" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Pazaryerleri</SelectItem>
+              <SelectItem value="trendyol">Trendyol</SelectItem>
+              <SelectItem value="hepsiburada">Hepsiburada</SelectItem>
+              <SelectItem value="amazon_tr">Amazon TR</SelectItem>
+              <SelectItem value="n11">N11</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={riskFilter} onValueChange={(v) => setRiskFilter(v ?? 'all')}>
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Risk Durumu" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Riskler</SelectItem>
+              <SelectItem value="safe">Güvenli</SelectItem>
+              <SelectItem value="moderate">Orta Risk</SelectItem>
+              <SelectItem value="risky">Riskli</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? 'all')}>
+            <SelectTrigger className="h-9 w-[130px] text-xs">
+              <SelectValue placeholder="Durum" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tümü</SelectItem>
+              <SelectItem value="profitable">Kârlı Ürünler</SelectItem>
+              <SelectItem value="loss">Zarar Edenler</SelectItem>
+              <SelectItem value="pareto_80">Kârın Omurgası (80/20)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] text-[11px] uppercase tracking-wider text-[rgba(255,255,255,0.4)]">
+                <th className="px-4 py-3.5 text-left font-semibold">Ürün Detayı</th>
+                <th className="hidden px-4 py-3.5 text-left font-semibold sm:table-cell">
+                  Pazaryeri
+                </th>
+                <th
+                  className="px-4 py-3.5 text-right font-semibold cursor-pointer select-none group"
+                  onClick={() => handleSort('monthly_net_profit')}
+                >
+                  <div className="flex items-center justify-end gap-1 group-hover:text-foreground transition-colors">
+                    Birim Kâr
+                  </div>
+                </th>
+                <th
+                  className="hidden px-4 py-3.5 text-right font-semibold md:table-cell cursor-pointer select-none group"
+                  onClick={() => handleSort('margin_pct')}
+                >
+                  <div className="flex items-center justify-end gap-1 group-hover:text-foreground transition-colors">
+                    Marj <SortIcon field="margin_pct" />
+                  </div>
+                </th>
+                <th
+                  className="hidden px-4 py-3.5 text-right font-semibold lg:table-cell cursor-pointer select-none group"
+                  onClick={() => handleSort('monthly_net_profit')}
+                >
+                  <div className="flex items-center justify-end gap-1 group-hover:text-foreground transition-colors">
+                    Aylık Kâr <SortIcon field="monthly_net_profit" />
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3.5 text-center font-semibold cursor-pointer select-none group"
+                  onClick={() => handleSort('risk_score')}
+                >
+                  <div className="flex items-center justify-center gap-1 group-hover:text-foreground transition-colors">
+                    Risk <SortIcon field="risk_score" />
+                  </div>
+                </th>
+                <th className="px-4 py-3.5 text-right font-semibold">İşlem</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y relative">
+              {paginatedData.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="h-32 text-center text-muted-foreground">
+                    Sonuç bulunamadı.
+                    <Button
+                      variant="link"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setMarketplaceFilter('all');
+                        setRiskFilter('all');
+                      }}
+                    >
+                      Filtreleri Temizle
+                    </Button>
+                  </td>
+                </tr>
+              ) : (
+                paginatedData.map((a) => (
+                  <tr key={a.id} className="transition-colors hover:bg-white/[0.03] group">
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground truncate max-w-[180px] sm:max-w-xs">
+                          {a.input.product_name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground mt-0.5">
+                          {new Date(a.createdAt).toLocaleDateString('tr-TR')}
+                        </span>
+                      </div>
+                      <div className="mt-1 sm:hidden">
+                        <span className="inline-flex items-center rounded-md bg-[rgba(255,255,255,0.06)] px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                          {getMarketplaceLabel(a.input.marketplace)}
+                        </span>
+                      </div>
+                      {/* Health Tags */}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {a.result.margin_pct >= 20 &&
+                          (a.risk.level === 'safe' || a.risk.level === 'moderate') && (
+                            <span className="inline-flex items-center rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                              ⭐ Yıldız
+                            </span>
+                          )}
+                        {a.result.monthly_net_profit > 0 &&
+                          (a.result.margin_pct < 10 ||
+                            a.risk.level === 'risky' ||
+                            a.risk.level === 'dangerous') && (
+                            <span className="inline-flex items-center rounded-sm bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-400">
+                              ⚠️ İnce Çizgi
+                            </span>
+                          )}
+                        {a.result.monthly_net_profit <= 0 && (
+                          <span className="inline-flex items-center rounded-sm bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                            🩸 Zarar
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-3.5 sm:table-cell">
+                      <span className="inline-flex items-center rounded-full bg-[rgba(255,255,255,0.06)] px-2.5 py-1 text-xs font-medium text-[rgba(255,255,255,0.6)] border border-[rgba(255,255,255,0.06)]">
+                        {getMarketplaceLabel(a.input.marketplace)}
+                      </span>
+                    </td>
+                    <td
+                      className={`px-4 py-3.5 text-right font-bold tabular-nums ${a.result.unit_net_profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                    >
+                      {formatCurrency(a.result.unit_net_profit)}
+                    </td>
+                    <td
+                      className={`hidden px-4 py-3.5 text-right font-bold tabular-nums md:table-cell ${a.result.margin_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                    >
+                      {formatPercent(a.result.margin_pct)}
+                    </td>
+                    <td
+                      className={`hidden px-4 py-3.5 text-right font-bold tabular-nums lg:table-cell ${a.result.monthly_net_profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                    >
+                      {formatCurrency(a.result.monthly_net_profit)}
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <RiskBadge level={a.risk.level} />
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      {/* Desktop Actions */}
+                      <div className="hidden sm:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link href={`/analysis/${a.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Link href={`/analysis/${a.id}/edit`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        {onDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => onDelete(a.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {/* Mobile Actions */}
+                      <div className="sm:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted transition-colors">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <Link href={`/analysis/${a.id}`}>
+                              <DropdownMenuItem>Görüntüle</DropdownMenuItem>
+                            </Link>
+                            <Link href={`/analysis/${a.id}/edit`}>
+                              <DropdownMenuItem>Düzenle</DropdownMenuItem>
+                            </Link>
+                            {onDelete && (
+                              <DropdownMenuItem
+                                onClick={() => onDelete(a.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                Sil
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.06)] px-4 py-3 bg-[rgba(255,255,255,0.02)]">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Satır:</span>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(v) => {
+                  setItemsPerPage(Number(v ?? 10));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[60px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

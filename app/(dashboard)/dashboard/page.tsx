@@ -1,166 +1,189 @@
 'use client';
 
-import Link from 'next/link';
-import { PlusCircle, TrendingUp, BarChart3, AlertTriangle, Star, Loader2, PackageOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useState, useEffect, useCallback } from 'react';
+import { toDashboardAnalysis } from '@/types/dashboard';
+import type { DashboardAnalysis } from '@/types/dashboard';
+import { analysesApi } from '@/lib/api/analyses';
 import { KPICard } from '@/components/shared/kpi-card';
-import { RiskBadge } from '@/components/shared/risk-badge';
-import { useDashboard } from '@/hooks/use-dashboard';
+import { ProductsTable } from '@/components/dashboard/products-table';
+import { RiskChart } from '@/components/dashboard/risk-chart';
+import { ProfitTrendChart } from '@/components/dashboard/profit-trend-chart';
+import { ParetoChart } from '@/components/dashboard/pareto-chart';
+import { PazaryeriIstatistikKarti } from '@/components/shared/PazaryeriIstatistikKarti';
+import { formatCurrency, formatPercent } from '@/components/shared/format';
+import { TrendingUp, Percent, AlertTriangle, Star, BarChart3, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { GeneralRiskCard } from '@/components/dashboard/general-risk-card';
+import { RecommendationsPanel } from '@/components/dashboard/recommendations-panel';
 
-function formatTRY(v: number): string {
-  return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(v);
+interface RawAnalysisRow {
+  id: string;
+  product_name: string;
+  marketplace: string;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  risk_score: number;
+  risk_level: string;
+  created_at: string;
 }
 
-function num(v: unknown): number {
-  return typeof v === 'number' ? v : 0;
+interface ConnStatus {
+  status: string;
+  seller_id?: string;
 }
 
 export default function DashboardPage() {
-  const {
-    analyses, totalProfit, avgMargin, riskyCount,
-    mostProfitable, loading, error, refresh,
-  } = useDashboard();
+  const [analyses, setAnalyses] = useState<DashboardAnalysis[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (loading) {
+  const [trendyolConn, setTrendyolConn] = useState<ConnStatus>({ status: 'disconnected' });
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await analysesApi.list();
+      const raw = (res.data ?? []) as RawAnalysisRow[];
+      setAnalyses(raw.map(toDashboardAnalysis));
+    } catch {
+      toast.error('Veriler yüklenirken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    fetch('/api/marketplace/trendyol')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setTrendyolConn({ status: d.status ?? 'disconnected', seller_id: d.seller_id });
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await analysesApi.delete(id);
+      if (res.success) {
+        toast.success('Analiz silindi.');
+        await refresh();
+      } else {
+        toast.error('Silme işlemi başarısız.');
+      }
+    } catch {
+      toast.error('Hata oluştu.');
+    }
+  };
+
+  const totalProfit = analyses.reduce((sum, a) => sum + a.result.monthly_net_profit, 0);
+  const avgMargin =
+    analyses.length > 0
+      ? analyses.reduce((sum, a) => sum + a.result.margin_pct, 0) / analyses.length
+      : 0;
+  const riskyCount = analyses.filter(
+    (a) => a.risk.level === 'risky' || a.risk.level === 'dangerous'
+  ).length;
+  const mostProfitable: DashboardAnalysis | null =
+    analyses.length > 0
+      ? analyses.reduce(
+          (best, a) => (a.result.monthly_net_profit > best.result.monthly_net_profit ? a : best),
+        )
+      : null;
+
+  if (loading && analyses.length === 0) {
     return (
-      <div className="flex items-center justify-center py-24">
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 md:p-6">
-        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-center">
-          <p className="text-sm text-destructive mb-3">{error}</p>
-          <Button variant="outline" size="sm" onClick={refresh}>Tekrar Dene</Button>
-        </div>
+        <p className="text-sm text-muted-foreground">Veriler yükleniyor...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Kâr analizinizin özeti</p>
+    <div className="space-y-8 p-4 md:p-6 pb-10">
+      {/* Header with Risk Card */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start justify-between border-b border-[rgba(255,255,255,0.06)] pb-6">
+        <div className="space-y-1.5 w-full lg:w-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Panel</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Ürün portföyünüzün anlık karlılık ve risk durumu.
+          </p>
         </div>
-        <Link href="/analysis">
-          <Button className="text-xs font-semibold" style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Yeni Analiz
-          </Button>
-        </Link>
+        <div className="w-full lg:w-auto min-w-0 lg:min-w-[300px]">
+          <GeneralRiskCard />
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Actionable Recommendations */}
+      <RecommendationsPanel analyses={analyses} />
+
+      {/* Dashboard KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
-          title="Aylık Net Kâr"
-          value={formatTRY(totalProfit)}
+          title="Aylık Tahmini Kâr"
+          value={formatCurrency(totalProfit)}
+          subtitle={totalProfit >= 0 ? 'Toplam net kâr' : 'Toplam zarar'}
           icon={TrendingUp}
           trend={totalProfit >= 0 ? 'up' : 'down'}
-          subtitle="Tüm ürünler toplamı"
         />
         <KPICard
           title="Ortalama Marj"
-          value={`%${avgMargin.toFixed(1)}`}
-          icon={BarChart3}
-          trend={avgMargin >= 10 ? 'up' : avgMargin >= 0 ? 'neutral' : 'down'}
-          subtitle={`${analyses.length} ürün ortalaması`}
+          value={formatPercent(avgMargin)}
+          subtitle={`${analyses.length} aktif ürün`}
+          icon={Percent}
+          trend={avgMargin >= 15 ? 'up' : avgMargin >= 5 ? 'neutral' : 'down'}
         />
         <KPICard
           title="Kritik Ürün"
-          value={String(riskyCount)}
+          value={riskyCount.toString()}
+          subtitle={riskyCount > 0 ? 'Acil aksiyon gerekli' : 'Risk bulunamadı'}
           icon={AlertTriangle}
-          trend={riskyCount > 0 ? 'down' : 'neutral'}
-          subtitle="Riskli / tehlikeli"
+          trend={riskyCount > 0 ? 'down' : 'up'}
         />
         <KPICard
-          title="En Kârlı Ürün"
-          value={mostProfitable ? formatTRY(num(mostProfitable.outputs?.unit_net_profit ?? mostProfitable.outputs?.unitNetProfit)) : '—'}
+          title="En Karlı Ürün"
+          value={mostProfitable ? mostProfitable.input.product_name : '-'}
+          subtitle={
+            mostProfitable
+              ? formatCurrency(mostProfitable.result.monthly_net_profit)
+              : 'Henüz veri yok'
+          }
           icon={Star}
-          trend="up"
-          subtitle={mostProfitable?.product_name ?? 'Henüz analiz yok'}
         />
       </div>
 
-      {/* Empty state */}
-      {analyses.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <PackageOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold text-lg mb-1">Henüz analiz yok</h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              İlk ürün analizinizi oluşturarak kârlılığınızı keşfedin.
-            </p>
-            <Link href="/analysis">
-              <Button>Yeni Analiz Oluştur</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      {/* Pazaryeri İstatistikleri */}
+      <PazaryeriIstatistikKarti
+        bagliPazaryerleri={[
+          { id: 'trendyol', status: trendyolConn.status, supplier_id: trendyolConn.seller_id },
+          { id: 'hepsiburada', status: 'disconnected' },
+        ]}
+      />
 
-      {/* Son Analizler */}
-      {analyses.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Son Analizler</CardTitle>
-              <Link href="/products">
-                <Button variant="outline" size="sm" className="text-xs">Tümünü Gör</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ürün</TableHead>
-                    <TableHead className="hidden sm:table-cell">Pazaryeri</TableHead>
-                    <TableHead className="text-right">Birim Kâr</TableHead>
-                    <TableHead className="text-right hidden md:table-cell">Marj</TableHead>
-                    <TableHead className="hidden sm:table-cell">Risk</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {analyses.slice(0, 10).map((a) => {
-                    const profit = num(a.outputs?.unit_net_profit ?? a.outputs?.unitNetProfit);
-                    const margin = num(a.outputs?.margin_pct ?? a.outputs?.marginPercent);
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell>
-                          <Link href={`/analysis/${a.id}`} className="font-medium hover:underline text-sm">
-                            {a.product_name}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell capitalize text-sm text-muted-foreground">
-                          {a.marketplace}
-                        </TableCell>
-                        <TableCell className={`text-right text-sm font-semibold ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {formatTRY(profit)}
-                        </TableCell>
-                        <TableCell className={`text-right hidden md:table-cell text-sm ${margin >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          %{margin.toFixed(1)}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <RiskBadge level={a.risk_level as 'safe' | 'moderate' | 'risky' | 'dangerous'} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Charts Section */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ProfitTrendChart analyses={analyses} />
+        </div>
+        <div className="space-y-6">
+          <ParetoChart analyses={analyses} />
+          <RiskChart analyses={analyses} />
+        </div>
+      </div>
+
+      {/* Products Table Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold text-foreground">Son Analizler</h2>
+          </div>
+        </div>
+        <ProductsTable analyses={analyses.slice(0, 10)} onDelete={handleDelete} />
+      </div>
     </div>
   );
 }

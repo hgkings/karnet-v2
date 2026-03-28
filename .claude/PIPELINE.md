@@ -74,7 +74,7 @@ Onay için "go" yazın.
 ## INBOX
 > Yeni görevler buraya. En öncelikli en üstte.
 
-_(Tum fazlar tamamlandi. DNS gecisi icin staging test bekleniyor.)_
+- [ ] #012 | BUG | PayTR callback not received after payment — static link callback URL needs to be configured per-link in PayTR panel, or switch to dynamic link creation with callback_id
 
 ---
 

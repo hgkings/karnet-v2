@@ -74,7 +74,6 @@ Onay için "go" yazın.
 ## INBOX
 > Yeni görevler buraya. En öncelikli en üstte.
 
-- [ ] #009 | SETUP | FAZ7b — Dashboard + Analiz sayfaları
 - [ ] #010 | SETUP | FAZ7c — Marketing + Admin + Destek sayfaları
 
 ---
@@ -105,6 +104,7 @@ Onay için "go" yazın.
 - [x] #006 | SETUP | FAZ6 — API katmanı: 23 route, 6 Zod şema, 5 lib/api helper (2026-03-28)
 - [x] #007 | REFACTOR | Service-Repository DI bağlantısı: 43 TODO(FAZ5) kaldırıldı, 8 servis + registry refactor (2026-03-28)
 - [x] #008 | SETUP | FAZ7a — Layout + Auth: navbar, sidebar, footer, dashboard-layout, 4 auth sayfa, callback, shared components (2026-03-28)
+- [x] #009 | SETUP | FAZ7b — Dashboard + Analiz: dashboard, analysis list/detail, products, marketplace, settings, billing (2026-03-28)
 
 ---
 
@@ -140,3 +140,4 @@ Onay için "go" yazın.
 | 006 | SETUP | FAZ6 — API Route'lar (23 route, 6 Zod sema, lib/api helpers) | 2026-03-28 |
 | 007 | REFACTOR | Service-Repository DI (43 TODO kaldirma, 8 servis + registry refactor) | 2026-03-28 |
 | 008 | SETUP | FAZ7a — Layout + Auth (navbar, sidebar, 4 auth sayfa, callback, shared components) | 2026-03-28 |
+| 009 | SETUP | FAZ7b — Dashboard + Analiz (dashboard, analysis, products, marketplace, settings, billing + components) | 2026-03-28 |

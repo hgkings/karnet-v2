@@ -1,53 +1,112 @@
-import Link from "next/link"
+'use client';
+
+import Link from 'next/link';
+import { Mail, MapPin, User, ShieldCheck } from 'lucide-react';
+import { KarnetLogo } from '@/components/shared/KarnetLogo';
+
+const PRODUCT_LINKS = [
+  { href: '/pricing', label: 'Fiyatlandırma' },
+  { href: '/demo', label: 'Demo' },
+  { href: '/auth', label: 'Giriş Yap' },
+  { href: '/support', label: 'Destek' },
+  { href: '/hakkimizda', label: 'Hakkımızda' },
+];
+
+const LEGAL_LINKS = [
+  { href: '/gizlilik-politikasi', label: 'Gizlilik Politikası' },
+  { href: '/kullanim-sartlari', label: 'Kullanım Şartları' },
+  { href: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satış' },
+  { href: '/iade-politikasi', label: 'İade Politikası' },
+];
 
 export function Footer() {
   return (
-    <footer className="border-t bg-background py-8 px-4 md:px-6">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Marka */}
-          <div>
-            <h3 className="font-bold text-lg text-primary mb-3">Kârnet</h3>
-            <p className="text-sm text-muted-foreground">
-              Türkiye&apos;nin marketplace satıcıları için gerçek net kâr hesaplama platformu.
-            </p>
+    <footer className="border-t border-[rgba(255,255,255,0.06)] bg-background">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+
+          {/* Brand */}
+          <div className="lg:col-span-1 space-y-4">
+            <div>
+              <KarnetLogo size={32} className="mb-3" />
+              <p className="text-sm text-[rgba(255,255,255,0.5)] leading-relaxed">
+                Pazaryeri satıcılarının gerçek kârını görmesini sağlayan analiz platformu.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.3)]">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+              <span>PayTR güvencesiyle ödeme</span>
+            </div>
           </div>
 
-          {/* Urun */}
-          <div>
-            <h4 className="font-semibold text-sm mb-3">Ürün</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/pricing" className="hover:text-foreground transition-colors">Fiyatlandırma</Link></li>
-              <li><Link href="/demo" className="hover:text-foreground transition-colors">Demo</Link></li>
-              <li><Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
-            </ul>
-          </div>
-
-          {/* Sirket */}
-          <div>
-            <h4 className="font-semibold text-sm mb-3">Şirket</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/hakkimizda" className="hover:text-foreground transition-colors">Hakkımızda</Link></li>
-              <li><Link href="/iletisim" className="hover:text-foreground transition-colors">İletişim</Link></li>
-              <li><Link href="/support" className="hover:text-foreground transition-colors">Destek</Link></li>
+          {/* Ürün */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-foreground">Ürün</h4>
+            <ul className="space-y-2.5">
+              {PRODUCT_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-[rgba(255,255,255,0.5)] hover:text-white transition-colors animated-underline inline-block"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           {/* Yasal */}
-          <div>
-            <h4 className="font-semibold text-sm mb-3">Yasal</h4>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/gizlilik-politikasi" className="hover:text-foreground transition-colors">Gizlilik Politikası</Link></li>
-              <li><Link href="/kullanim-sartlari" className="hover:text-foreground transition-colors">Kullanım Şartları</Link></li>
-              <li><Link href="/mesafeli-satis-sozlesmesi" className="hover:text-foreground transition-colors">Mesafeli Satış Sözleşmesi</Link></li>
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-foreground">Yasal</h4>
+            <ul className="space-y-2.5">
+              {LEGAL_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-[rgba(255,255,255,0.5)] hover:text-white transition-colors animated-underline inline-block"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* İletişim */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-foreground">İletişim</h4>
+            <ul className="space-y-3">
+              <li className="flex items-center gap-2.5 text-sm text-[rgba(255,255,255,0.5)]">
+                <Mail className="h-4 w-4 shrink-0 text-amber-500/70" />
+                <a href="mailto:karnet.destek@gmail.com" className="hover:text-white transition-colors">
+                  karnet.destek@gmail.com
+                </a>
+              </li>
+              <li className="flex items-start gap-2.5 text-sm text-[rgba(255,255,255,0.5)]">
+                <MapPin className="h-4 w-4 shrink-0 text-amber-500/70 mt-0.5" />
+                <span className="leading-relaxed">
+                  Konya, Türkiye
+                </span>
+              </li>
+              <li className="flex items-center gap-2.5 text-sm text-[rgba(255,255,255,0.5)]">
+                <User className="h-4 w-4 shrink-0 text-amber-500/70" />
+                <span>Süleyman Hilmi İşbilir</span>
+              </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Kârnet. Tüm hakları saklıdır.
+        {/* Bottom bar */}
+        <div className="mt-12 pt-6 border-t border-[rgba(255,255,255,0.06)] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-[rgba(255,255,255,0.3)]">
+            © {new Date().getFullYear()} Kârnet · PayTR güvencesiyle · Veriler satılmaz
+          </p>
+          <p className="text-xs text-[rgba(255,255,255,0.3)]">
+            Tüm hakları saklıdır.
+          </p>
         </div>
       </div>
     </footer>
-  )
+  );
 }

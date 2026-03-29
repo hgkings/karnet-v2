@@ -307,6 +307,121 @@ export class PaymentLogic {
   }
 
   /**
+   * Pro tarihleri backfill eder.
+   * Son basarili odeme kaydina gore pro_started_at ve pro_expires_at hesaplar.
+   */
+  async backfillProDates(
+    traceId: string,
+    _payload: unknown,
+    userId: string
+  ): Promise<{ proStartedAt: string; proExpiresAt: string }> {
+    const payments = await this.paymentRepo.findByUserId(userId)
+    const paidPayment = payments.find(p => p.status === 'paid')
+
+    if (!paidPayment) {
+      throw new ServiceError('Ödeme kaydı bulunamadı', {
+        code: 'NO_PAYMENT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+
+    const startedAt = paidPayment.paid_at ?? paidPayment.created_at
+    const isYearly = paidPayment.plan === 'pro_yearly' || paidPayment.plan === 'starter_yearly'
+    const durationDays = isYearly ? 365 : 30
+    const expiresAt = new Date(new Date(startedAt).getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+
+    return { proStartedAt: startedAt, proExpiresAt: expiresAt }
+  }
+
+  /**
+   * Odeme durumunu kontrol eder (UI polling).
+   */
+  async checkPayment(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ isPro: boolean; paymentStatus: string }> {
+    const { paymentId } = payload as { paymentId: string }
+
+    if (!paymentId) {
+      throw new ServiceError('paymentId gerekli', {
+        code: 'MISSING_PAYMENT_ID',
+        statusCode: 400,
+        traceId,
+      })
+    }
+
+    const payment = await this.paymentRepo.findById(paymentId)
+    if (!payment) {
+      throw new ServiceError('Ödeme bulunamadı', {
+        code: 'PAYMENT_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+
+    return {
+      isPro: payment.status === 'paid',
+      paymentStatus: payment.status,
+    }
+  }
+
+  /**
+   * Test callback — sadece development ortami.
+   * Son odeme kaydini 'paid' yapar ve profili Pro yapar.
+   */
+  async testCallback(
+    traceId: string,
+    _payload: unknown,
+    _userId: string
+  ): Promise<{ success: boolean; paymentId: string }> {
+    if (process.env.NODE_ENV !== 'development') {
+      throw new ServiceError('Sadece development ortamında kullanılabilir', {
+        code: 'NOT_DEVELOPMENT',
+        statusCode: 403,
+        traceId,
+      })
+    }
+
+    const payments = await this.paymentRepo.findMany({}, { orderBy: 'created_at', orderDirection: 'desc', limit: 1 })
+    const payment = payments[0]
+
+    if (!payment) {
+      throw new ServiceError('Ödeme kaydı bulunamadı', {
+        code: 'NO_PAYMENT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+
+    const planConfig = PLANS[payment.plan]
+    const durationDays = planConfig?.durationDays ?? 30
+    const proUntil = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+
+    await this.paymentRepo.updatePaymentAndProfile(
+      payment.id,
+      payment.user_id,
+      {
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        provider_order_id: payment.provider_order_id,
+        raw_payload: { status: 'success', test: true },
+      },
+      {
+        plan: planConfig?.plan ?? 'pro',
+        is_pro: true,
+        plan_type: planConfig?.id ?? 'pro_monthly',
+        pro_started_at: new Date().toISOString(),
+        pro_expires_at: proUntil,
+        pro_renewal: false,
+      }
+    )
+
+    return { success: true, paymentId: payment.id }
+  }
+
+  /**
    * Plan listesini dondurur.
    */
   async getPlans(

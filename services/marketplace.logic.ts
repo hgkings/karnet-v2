@@ -6,6 +6,9 @@
 
 import { ServiceError } from '@/lib/gateway/types'
 import { encrypt, decrypt } from '@/lib/db/db.helper'
+import { encryptCredentials, decryptCredentials } from '@/lib/marketplace/crypto'
+import * as trendyolApi from '@/lib/marketplace/trendyol.api'
+import * as hepsiburadaApi from '@/lib/marketplace/hepsiburada.api'
 import type { MarketplaceRepository } from '@/repositories/marketplace.repository'
 
 // ----------------------------------------------------------------
@@ -263,6 +266,354 @@ export class MarketplaceLogic {
     userId: string
   ): Promise<unknown[]> {
     return this.marketplaceRepo.getConnectionsByUserId(userId)
+  }
+
+  // ----------------------------------------------------------------
+  // Trendyol-specific metodlar
+  // ----------------------------------------------------------------
+
+  async syncTrendyolProducts(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ productsCount: number }> {
+    const { connectionId } = payload as { connectionId: string }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'trendyol_products',
+      status: 'running',
+    })
+
+    try {
+      const page = await trendyolApi.fetchProducts(creds)
+      const productsCount = page.totalElements
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${productsCount} ürün çekildi`)
+      await this.marketplaceRepo.updateLastSyncAt(connectionId)
+      return { productsCount }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
+  }
+
+  async syncTrendyolOrders(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ ordersCount: number }> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'trendyol_orders',
+      status: 'running',
+    })
+
+    try {
+      const end = new Date()
+      const start = new Date(end.getTime() - (days ?? 30) * 24 * 60 * 60 * 1000)
+      const orders = await trendyolApi.fetchAllOrders(creds, start.getTime(), end.getTime())
+      const ordersCount = orders.length
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${ordersCount} sipariş çekildi`)
+      await this.marketplaceRepo.updateLastSyncAt(connectionId)
+      return { ordersCount }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
+  }
+
+  async testTrendyol(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ success: boolean; storeName: string | null }> {
+    const { connectionId } = payload as { connectionId: string }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+
+    const result = await trendyolApi.testConnection(creds)
+    if (result.success) {
+      await this.marketplaceRepo.updateConnectionStatus(connectionId, 'connected')
+    } else {
+      await this.marketplaceRepo.updateConnectionStatus(connectionId, 'error')
+    }
+    return { success: result.success, storeName: result.storeName ?? null }
+  }
+
+  async getTrendyolClaims(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ claims: trendyolApi.TrendyolClaim[] }> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+
+    const end = new Date()
+    const start = new Date(end.getTime() - (days ?? 90) * 24 * 60 * 60 * 1000)
+    const claims = await trendyolApi.fetchAllClaims(creds, start, end)
+    return { claims }
+  }
+
+  async getTrendyolFinance(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ settlements: trendyolApi.SellerSettlement[]; otherFinancials: trendyolApi.OtherFinancial[] }> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+
+    const end = new Date()
+    const start = new Date(end.getTime() - (days ?? 30) * 24 * 60 * 60 * 1000)
+    const startStr = start.toISOString()
+    const endStr = end.toISOString()
+
+    const [settlements, otherFinancials] = await Promise.all([
+      trendyolApi.getSellerSettlements(creds, startStr, endStr),
+      trendyolApi.getOtherFinancials(creds, startStr, endStr),
+    ])
+
+    return { settlements, otherFinancials }
+  }
+
+  async normalizeTrendyol(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ matched: number; created: number; manual: number }> {
+    // TODO: normalizer entegrasyonu — rawProducts ve analyses repo'dan çekilecek
+    return { matched: 0, created: 0, manual: 0 }
+  }
+
+  async normalizeTrendyolOrders(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ metricsUpdated: number; unmatchedOrders: number }> {
+    // TODO: normalizer entegrasyonu — rawOrders ve productMap repo'dan çekilecek
+    return { metricsUpdated: 0, unmatchedOrders: 0 }
+  }
+
+  async getTrendyolUnsuppliedOrders(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ orders: Record<string, unknown>[] }> {
+    const { connectionId } = payload as { connectionId: string }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+    const orders = await trendyolApi.fetchAskidakiSiparisler(creds)
+    return { orders }
+  }
+
+  async registerTrendyolWebhook(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ registration: trendyolApi.WebhookRegistration }> {
+    const { connectionId, webhookUrl } = payload as { connectionId: string; webhookUrl: string }
+    const creds = await this.resolveCredentials(connectionId, traceId)
+    const registration = await trendyolApi.registerWebhook(creds, webhookUrl)
+    await this.marketplaceRepo.updateConnectionStatus(connectionId, 'connected')
+    return { registration }
+  }
+
+  async handleTrendyolWebhook(
+    _traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ processed: boolean }> {
+    // TODO: webhook event'ini DB'ye kaydet, bildirim oluştur
+    return { processed: true }
+  }
+
+  // ----------------------------------------------------------------
+  // Hepsiburada-specific metodlar
+  // ----------------------------------------------------------------
+
+  async syncHepsiburadaProducts(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ productsCount: number }> {
+    const { connectionId } = payload as { connectionId: string }
+    const creds = await this.resolveHbCredentials(connectionId, traceId)
+
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'hepsiburada_products',
+      status: 'running',
+    })
+
+    try {
+      const result = await hepsiburadaApi.fetchAllProducts(creds)
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${result.totalCount} ürün çekildi`)
+      await this.marketplaceRepo.updateLastSyncAt(connectionId)
+      return { productsCount: result.totalCount }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
+  }
+
+  async syncHepsiburadaOrders(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ ordersCount: number }> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveHbCredentials(connectionId, traceId)
+
+    const syncLog = await this.marketplaceRepo.createSyncLog({
+      connection_id: connectionId,
+      sync_type: 'hepsiburada_orders',
+      status: 'running',
+    })
+
+    try {
+      const end = new Date()
+      const start = new Date(end.getTime() - (days ?? 30) * 24 * 60 * 60 * 1000)
+      const orders = await hepsiburadaApi.fetchAllOrders(creds, start, end)
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'success', `${orders.length} sipariş çekildi`)
+      await this.marketplaceRepo.updateLastSyncAt(connectionId)
+      return { ordersCount: orders.length }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+      await this.marketplaceRepo.updateSyncLog(syncLog.id, 'failed', msg)
+      throw error
+    }
+  }
+
+  async testHepsiburada(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ success: boolean; storeName: string | null }> {
+    const { connectionId } = payload as { connectionId: string }
+    const creds = await this.resolveHbCredentials(connectionId, traceId)
+
+    const result = await hepsiburadaApi.testConnection(creds)
+    if (result.success) {
+      await this.marketplaceRepo.updateConnectionStatus(connectionId, 'connected')
+    } else {
+      await this.marketplaceRepo.updateConnectionStatus(connectionId, 'error')
+    }
+    return { success: result.success, storeName: result.storeName ?? null }
+  }
+
+  async testHepsiburadaConnection(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ success: boolean; storeName: string | null }> {
+    return this.testHepsiburada(traceId, payload, userId)
+  }
+
+  async getHepsiburadaClaims(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<unknown> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveHbCredentials(connectionId, traceId)
+
+    const end = new Date()
+    const start = new Date(end.getTime() - (days ?? 90) * 24 * 60 * 60 * 1000)
+    return hepsiburadaApi.getClaims(creds, start, end)
+  }
+
+  async getHepsiburadaFinance(
+    traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<unknown> {
+    const { connectionId, days } = payload as { connectionId: string; days?: number }
+    const creds = await this.resolveHbCredentials(connectionId, traceId)
+
+    const end = new Date()
+    const start = new Date(end.getTime() - (days ?? 30) * 24 * 60 * 60 * 1000)
+    return hepsiburadaApi.getFinanceRecords(creds, start, end)
+  }
+
+  async normalizeHepsiburada(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ matched: number; created: number; manual: number }> {
+    // TODO: normalizer entegrasyonu — rawProducts ve analyses repo'dan çekilecek
+    return { matched: 0, created: 0, manual: 0 }
+  }
+
+  async normalizeHepsiburadaOrders(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ metricsUpdated: number; unmatchedOrders: number }> {
+    // TODO: normalizer entegrasyonu — rawOrders ve productMap repo'dan çekilecek
+    return { metricsUpdated: 0, unmatchedOrders: 0 }
+  }
+
+  async rotateKeys(
+    traceId: string,
+    _payload: unknown,
+    _userId: string
+  ): Promise<{ rotated: number; total: number; errors: string[] }> {
+    const allSecrets = await this.marketplaceRepo.getAllSecrets()
+    let rotated = 0
+    const errors: string[] = []
+
+    for (const secret of allSecrets) {
+      try {
+        const plaintext = decryptCredentials(secret.encrypted_blob)
+        const newBlob = encryptCredentials(plaintext)
+        const newVersion = (secret.key_version || 1) + 1
+        await this.marketplaceRepo.storeSecrets(secret.connection_id, newBlob, newVersion)
+        rotated++
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Bilinmeyen hata'
+        errors.push(`Secret ${secret.id}: ${msg}`)
+      }
+    }
+
+    return { rotated, total: allSecrets.length, errors }
+  }
+
+  // ----------------------------------------------------------------
+  // Dahili yardimcilar
+  // ----------------------------------------------------------------
+
+  private async resolveCredentials(
+    connectionId: string,
+    traceId: string
+  ): Promise<trendyolApi.TrendyolCredentials> {
+    const secretRow = await this.marketplaceRepo.getSecrets(connectionId)
+    if (!secretRow) {
+      throw new ServiceError('Bağlantı bilgileri bulunamadı', {
+        code: 'SECRETS_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+    return JSON.parse(decrypt(secretRow.encrypted_blob)) as trendyolApi.TrendyolCredentials
+  }
+
+  private async resolveHbCredentials(
+    connectionId: string,
+    traceId: string
+  ): Promise<hepsiburadaApi.HepsiburadaCredentials> {
+    const secretRow = await this.marketplaceRepo.getSecrets(connectionId)
+    if (!secretRow) {
+      throw new ServiceError('Bağlantı bilgileri bulunamadı', {
+        code: 'SECRETS_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+    return JSON.parse(decrypt(secretRow.encrypted_blob)) as hepsiburadaApi.HepsiburadaCredentials
   }
 
   /**

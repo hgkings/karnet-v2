@@ -360,7 +360,7 @@ export function AnalysisForm({ initialData, analysisId, isDemo = false }: Analys
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ analysisId: analysisData.id })
-        }).catch(err => console.error('Risk check failed:', err));
+        }).catch(() => { /* risk check fire-and-forget */ });
       }
 
       await refresh();

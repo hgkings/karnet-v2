@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, AlertTriangle, AlertOctagon, ArrowRight } from 'lucide-react';
@@ -12,14 +13,36 @@ type RiskLevel = 'safe' | 'moderate' | 'high';
 export function GeneralRiskCard() {
   const { user } = useAuth();
   const router = useRouter();
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>('safe');
+  const [reasons, setReasons] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const isPro = user ? isProUser(user) : false;
 
-  if (!isPro) return null;
+  useEffect(() => {
+    if (!user || !isPro) return;
 
-  // Simplified: static safe state until real risk API is implemented
-  const riskLevel: RiskLevel = 'safe';
-  const reasons = ['Finansal durumunuz şu an dengeli görünüyor.'];
+    const checkRisk = async () => {
+      let level: RiskLevel = 'safe';
+      const newReasons: string[] = [];
+
+      // Risk API entegrasyonu tamamlandığında buraya fetch('/api/risk/check') eklenecek.
+      // Şu an için statik güvenli durum döndürülüyor.
+
+      if (newReasons.length === 0) {
+        newReasons.push('Finansal durumunuz şu an dengeli görünüyor.');
+      }
+
+      setRiskLevel(level);
+      setReasons(newReasons);
+      setLoading(false);
+    };
+
+    checkRisk();
+  }, [user, isPro]);
+
+  if (!isPro) return null;
+  if (loading) return null;
 
   const styles = {
     safe: {

@@ -1,0 +1,184 @@
+
+'use client';
+
+import { useState } from 'react';
+import { Analysis, Marketplace } from '@/types';
+import { calculateProfit } from '@/utils/calculations';
+import { calculateRisk } from '@/utils/risk-engine';
+import { saveAnalysis } from '@/lib/api/analyses';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { marketplaces } from '@/lib/marketplace-data';
+import { toast } from 'sonner';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+
+interface BulkUpdateModalProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    analyses: Analysis[];
+    onComplete: () => void;
+}
+
+export function BulkUpdateModal({ open, onOpenChange, analyses, onComplete }: BulkUpdateModalProps) {
+    const [loading, setLoading] = useState(false);
+    const [filterMarketplace, setFilterMarketplace] = useState<Marketplace | 'all'>('all');
+    const [updateType, setUpdateType] = useState<'price_pct' | 'price_fixed' | 'commission' | 'ad_cost'>('price_pct');
+    const [updateValue, setUpdateValue] = useState<number>(0);
+
+    const filteredAnalyses = analyses.filter(a =>
+        filterMarketplace === 'all' || a.input.marketplace === filterMarketplace
+    );
+
+    const handleApply = async () => {
+        if (filteredAnalyses.length === 0) {
+            toast.error('Güncellenecek ürün bulunamadı.');
+            return;
+        }
+
+        setLoading(true);
+        let successCount = 0;
+
+        try {
+            for (const analysis of filteredAnalyses) {
+                const updatedInput = { ...analysis.input };
+
+                switch (updateType) {
+                    case 'price_pct':
+                        updatedInput.sale_price = updatedInput.sale_price * (1 + updateValue / 100);
+                        break;
+                    case 'price_fixed':
+                        updatedInput.sale_price = updatedInput.sale_price + updateValue;
+                        break;
+                    case 'commission':
+                        updatedInput.commission_pct = updateValue;
+                        break;
+                    case 'ad_cost':
+                        updatedInput.ad_cost_per_sale = updateValue;
+                        break;
+                }
+
+                const result = calculateProfit(updatedInput);
+                const risk = calculateRisk(updatedInput, result);
+
+                const updatedAnalysis: Analysis = {
+                    ...analysis,
+                    input: updatedInput,
+                    result,
+                    risk,
+                };
+
+                const res = await saveAnalysis(updatedAnalysis);
+                if (res.success) successCount++;
+            }
+
+            toast.success(`${successCount} ürün başarıyla güncellendi.`);
+            onComplete();
+            onOpenChange(false);
+        } catch (error) {
+            throw new Error('Toplu güncelleme sırasında bir hata oluştu.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>Toplu Güncelleme</DialogTitle>
+                    <DialogDescription>
+                        Seçili kriterlere uyan tüm ürün analizlerini tek seferde güncelleyin.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-6 py-4">
+                    <div className="space-y-2">
+                        <Label>Pazaryeri Filtresi</Label>
+                        <Select value={filterMarketplace} onValueChange={(v) => setFilterMarketplace(v as Marketplace | 'all')}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pazaryeri seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tüm Pazaryerleri</SelectItem>
+                                {marketplaces.map(mp => (
+                                    <SelectItem key={mp.key} value={mp.key}>{mp.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {filteredAnalyses.length} ürün etkilenecek.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Güncelleme Tipi</Label>
+                            <Select value={updateType} onValueChange={(v) => setUpdateType(v as 'price_pct' | 'price_fixed' | 'commission' | 'ad_cost')}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="price_pct">Satış Fiyatı +%</SelectItem>
+                                    <SelectItem value="price_fixed">Satış Fiyatı +₺</SelectItem>
+                                    <SelectItem value="commission">Komisyon Set (%)</SelectItem>
+                                    <SelectItem value="ad_cost">Reklam Set (₺)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Değer</Label>
+                            <Input
+                                type="number"
+                                value={updateValue}
+                                onChange={(e) => setUpdateValue(parseFloat(e.target.value))}
+                            />
+                        </div>
+                    </div>
+
+                    {updateValue !== 0 && (
+                        <div className="rounded-lg bg-amber-500/10 p-3 border border-amber-500/20">
+                            <div className="flex gap-2">
+                                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-400">
+                                    Bu işlem {filteredAnalyses.length} ürünün verilerini kalıcı olarak değiştirecek ve kâr oranlarını yeniden hesaplayacaktır.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                        İptal
+                    </Button>
+                    <Button onClick={handleApply} disabled={loading || filteredAnalyses.length === 0}>
+                        {loading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Güncelleniyor...
+                            </>
+                        ) : (
+                            'Uygula'
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}

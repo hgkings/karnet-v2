@@ -73,7 +73,7 @@ export default function DashboardPage() {
       ? analyses.reduce((sum, a) => sum + a.result.margin_pct, 0) / analyses.length
       : 0;
   const riskyCount = analyses.filter(
-    (a) => a.risk.level === 'risky' || a.risk.level === 'dangerous'
+    (a) => a.risk.level === 'risky' || a.risk.level === 'dangerous' || a.risk.score >= 50
   ).length;
   const mostProfitable =
     analyses.length > 0
@@ -104,7 +104,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="w-full lg:w-auto min-w-0 lg:min-w-[300px]">
-          <GeneralRiskCard />
+          <GeneralRiskCard analyses={dashAnalyses} />
         </div>
       </div>
 

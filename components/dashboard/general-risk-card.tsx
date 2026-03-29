@@ -10,39 +10,48 @@ import { isProUser } from '@/utils/access';
 
 type RiskLevel = 'safe' | 'moderate' | 'high';
 
-export function GeneralRiskCard() {
+interface GeneralRiskCardProps {
+  analyses?: Array<{
+    result: { margin_pct: number; monthly_net_profit: number };
+    risk: { level: string; score: number };
+  }>;
+}
+
+export function GeneralRiskCard({ analyses = [] }: GeneralRiskCardProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>('safe');
-  const [reasons, setReasons] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const isPro = user ? isProUser(user) : false;
 
-  useEffect(() => {
-    if (!user || !isPro) return;
+  // Analiz verisinden risk hesapla
+  let riskLevel: RiskLevel = 'safe';
+  const reasons: string[] = [];
 
-    const checkRisk = async () => {
-      let level: RiskLevel = 'safe';
-      const newReasons: string[] = [];
+  if (analyses.length > 0) {
+    const riskyCount = analyses.filter(a => a.risk.level === 'risky' || a.risk.level === 'dangerous').length;
+    const negativeCount = analyses.filter(a => a.result.monthly_net_profit < 0).length;
+    const avgMargin = analyses.reduce((s, a) => s + a.result.margin_pct, 0) / analyses.length;
 
-      // Risk API entegrasyonu tamamlandığında buraya fetch('/api/risk/check') eklenecek.
-      // Şu an için statik güvenli durum döndürülüyor.
+    if (riskyCount > 0) {
+      reasons.push(`${riskyCount} ürün yüksek risk taşıyor.`);
+      riskLevel = riskyCount >= 3 ? 'high' : 'moderate';
+    }
+    if (negativeCount > 0) {
+      reasons.push(`${negativeCount} ürün zararda.`);
+      if (negativeCount >= 2) riskLevel = 'high';
+      else if (riskLevel === 'safe') riskLevel = 'moderate';
+    }
+    if (avgMargin < 5 && avgMargin !== 0) {
+      reasons.push(`Ortalama marj düşük (%${avgMargin.toFixed(1)}).`);
+      if (riskLevel === 'safe') riskLevel = 'moderate';
+    }
+  }
 
-      if (newReasons.length === 0) {
-        newReasons.push('Finansal durumunuz şu an dengeli görünüyor.');
-      }
+  if (reasons.length === 0) {
+    reasons.push('Finansal durumunuz şu an dengeli görünüyor.');
+  }
 
-      setRiskLevel(level);
-      setReasons(newReasons);
-      setLoading(false);
-    };
-
-    checkRisk();
-  }, [user, isPro]);
-
-  if (!isPro) return null;
-  if (loading) return null;
+  if (!isPro && analyses.length === 0) return null;
 
   const styles = {
     safe: {

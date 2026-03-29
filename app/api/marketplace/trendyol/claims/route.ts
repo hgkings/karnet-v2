@@ -1,0 +1,18 @@
+import { requireAuth, callGateway, errorResponse } from '@/lib/api/helpers'
+
+export const dynamic = 'force-dynamic'
+
+// TODO: marketplace servisine getTrendyolClaims metodu eklenecek
+export async function GET(request: Request) {
+  try {
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
+
+    const { searchParams } = new URL(request.url)
+    const gun = Number(searchParams.get('gun') ?? '30')
+
+    return await callGateway('marketplace', 'getTrendyolClaims', { gun }, auth.id)
+  } catch (error) {
+    return errorResponse(error)
+  }
+}

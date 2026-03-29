@@ -586,6 +586,54 @@ export class AnalysisLogic {
     return { defaults }
   }
 
+  /**
+   * Analizin var olup olmadigini kontrol eder (sahiplik kontrolu ile).
+   */
+  async checkAnalysisExists(
+    _traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ exists: boolean }> {
+    const { analysisId } = payload as { analysisId: string }
+    const row = await this.analysisRepo.findByIdAndUserId(analysisId, userId)
+    return { exists: row !== null }
+  }
+
+  /**
+   * Sidebar icin ozet istatistikleri dondurur.
+   */
+  async getSidebarStats(
+    _traceId: string,
+    _payload: unknown,
+    userId: string
+  ): Promise<{ totalAnalyses: number; avgMargin: number; criticalCount: number }> {
+    const analyses = await this.analysisRepo.findByUserId(userId)
+
+    const totalAnalyses = analyses.length
+    if (totalAnalyses === 0) {
+      return { totalAnalyses: 0, avgMargin: 0, criticalCount: 0 }
+    }
+
+    let marginSum = 0
+    let criticalCount = 0
+
+    for (const a of analyses) {
+      const outputs = a.outputs as Record<string, unknown> | null
+      const marginPct = typeof outputs?.marginPercent === 'number' ? outputs.marginPercent : 0
+      marginSum += marginPct
+
+      if (a.risk_level === 'dangerous' || a.risk_score >= 70) {
+        criticalCount++
+      }
+    }
+
+    return {
+      totalAnalyses,
+      avgMargin: marginSum / totalAnalyses,
+      criticalCount,
+    }
+  }
+
   // ----------------------------------------------------------------
   // Dahili yardimcilar
   // ----------------------------------------------------------------

@@ -168,6 +168,72 @@ export class UserLogic {
   }
 
   /**
+   * Profil yoksa olusturur, varsa gunceller.
+   */
+  async upsertProfile(
+    _traceId: string,
+    payload: unknown,
+    _userId: string
+  ): Promise<{ success: boolean }> {
+    const data = payload as { id: string; email: string; [key: string]: unknown }
+    await this.userRepo.upsertProfile(data as Parameters<typeof this.userRepo.upsertProfile>[0])
+    return { success: true }
+  }
+
+  /**
+   * Email bildirim tercihlerini gunceller.
+   */
+  async updateEmailPreferences(
+    _traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ success: boolean }> {
+    const prefs = payload as {
+      email_notifications_enabled?: boolean
+      email_weekly_report?: boolean
+      email_risk_alert?: boolean
+      email_margin_alert?: boolean
+      email_pro_expiry?: boolean
+    }
+    await this.userRepo.updateEmailPreferences(userId, prefs)
+    return { success: true }
+  }
+
+  /**
+   * Analiz limiti kontrol eder (plan bazli).
+   * Kullanici profilinden plan'i alir, analiz sayisini repository'den sayar.
+   */
+  async checkAnalysisLimit(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ allowed: boolean; current: number; limit: number }> {
+    const { currentAnalysisCount } = payload as { currentAnalysisCount: number }
+    const profile = await this.userRepo.findById(userId)
+
+    if (!profile) {
+      throw new ServiceError('Kullanıcı profili bulunamadı', {
+        code: 'PROFILE_NOT_FOUND',
+        statusCode: 404,
+        traceId,
+      })
+    }
+
+    const plan = profile.plan as PlanType
+    const limits = this.resolveLimits(plan)
+
+    if (limits.maxProducts === Infinity) {
+      return { allowed: true, current: currentAnalysisCount, limit: Infinity }
+    }
+
+    return {
+      allowed: currentAnalysisCount < limits.maxProducts,
+      current: currentAnalysisCount,
+      limit: limits.maxProducts,
+    }
+  }
+
+  /**
    * Plan limiti kontrol eder.
    * Analiz olusturmadan once cagrilir.
    */

@@ -208,6 +208,37 @@ export class SupportLogic {
   }
 
   /**
+   * Kullanicinin kendi talebini siler (sahiplik kontrolu).
+   */
+  async deleteTicket(
+    traceId: string,
+    payload: unknown,
+    userId: string
+  ): Promise<{ success: boolean }> {
+    const { ticketId } = payload as { ticketId: string }
+    if (!ticketId) {
+      throw new ServiceError('Talep ID\'si zorunludur', {
+        code: 'MISSING_TICKET_ID',
+        statusCode: 400,
+        traceId,
+      })
+    }
+    await this.supportRepo.deleteByUser(userId, ticketId)
+    return { success: true }
+  }
+
+  /**
+   * Talep istatistiklerini dondurur (admin).
+   */
+  async getTicketStats(
+    _traceId: string,
+    _payload: unknown,
+    _userId: string
+  ): Promise<{ open: number; reviewing: number; answeredToday: number; total: number }> {
+    return this.supportRepo.getStats()
+  }
+
+  /**
    * Admin icin tum talepleri listeler (filtre + pagination).
    */
   async listAllTickets(

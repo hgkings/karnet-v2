@@ -72,6 +72,18 @@ export class SupportRepository extends BaseRepository<TicketRow> {
     }
   }
 
+  async deleteByUser(userId: string, ticketId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from(this.tableName)
+      .delete()
+      .eq('id', ticketId)
+      .eq('user_id', userId)
+
+    if (error) {
+      throw new Error(`Talep silinemedi: ${error.message}`)
+    }
+  }
+
   /**
    * Admin: tum talepler (server-side pagination — v1 hata duzeltmesi).
    */

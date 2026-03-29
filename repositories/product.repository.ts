@@ -56,6 +56,54 @@ export class ProductRepository {
     return result as ProductMarketplaceMapRow
   }
 
+  async getMapById(userId: string, mapId: string): Promise<ProductMarketplaceMapRow | null> {
+    const { data, error } = await this.supabase
+      .from('product_marketplace_map')
+      .select('*')
+      .eq('id', mapId)
+      .eq('user_id', userId)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null
+      throw new Error(`Urun eslestirme getirilemedi: ${error.message}`)
+    }
+
+    return data as ProductMarketplaceMapRow
+  }
+
+  async deleteMap(userId: string, mapId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('product_marketplace_map')
+      .delete()
+      .eq('id', mapId)
+      .eq('user_id', userId)
+
+    if (error) {
+      throw new Error(`Urun eslestirme silinemedi: ${error.message}`)
+    }
+  }
+
+  async updateMap(
+    userId: string,
+    mapId: string,
+    data: Partial<Omit<ProductMarketplaceMapRow, 'id' | 'user_id' | 'created_at'>>
+  ): Promise<ProductMarketplaceMapRow> {
+    const { data: result, error } = await this.supabase
+      .from('product_marketplace_map')
+      .update(data)
+      .eq('id', mapId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Urun eslestirme guncellenemedi: ${error.message}`)
+    }
+
+    return result as ProductMarketplaceMapRow
+  }
+
   // ---- product_sales_metrics ----
 
   async getSalesMetrics(

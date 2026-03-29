@@ -201,7 +201,6 @@ export default function AnalysisResultPage() {
 
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}));
-        console.warn("[PDF Export] 403 Forbidden:", errData);
         // If server says PRO_REQUIRED, show upgrade modal even if client thought it was Pro (sync issue)
         if (errData.error === "PRO_REQUIRED") {
           setShowUpgrade(true);
@@ -213,7 +212,6 @@ export default function AnalysisResultPage() {
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        console.error("PDF Error:", errJson);
         toast.error(`PDF olusturulamadi: ${errJson.error || 'Hata'} (${errJson.details || ''})`);
         return;
       }
@@ -226,8 +224,7 @@ export default function AnalysisResultPage() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success('PDF indirildi!');
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.dismiss('pdf-download');
       toast.error('PDF indirme hatasi.');
     }
@@ -257,20 +254,6 @@ export default function AnalysisResultPage() {
   }
 
   const { input, result, risk } = analysis;
-
-  // Debug log for VAT calculation verification
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[VAT Debug]', {
-      product: input.product_name,
-      sale_price: input.sale_price,
-      vat_pct: input.vat_pct,
-      vat_amount: result.vat_amount,
-      types: {
-        sale_price_type: typeof input.sale_price,
-        vat_pct_type: typeof input.vat_pct
-      }
-    });
-  }
 
   return (
     <DashboardLayout>

@@ -51,10 +51,10 @@ export function ProStatusCard() {
   // Bitiş tarihi ve Kalan Gün hesapla
   let expireLabel = 'Ayarlanmadı';
   let daysRemaining: number | null = null;
-  const renewalLabel = user.proRenewal === true ? 'Otomatik' : 'Manuel';
+  const renewalLabel = user.pro_renewal === true ? 'Otomatik' : 'Manuel';
 
-  if (user.proExpiresAt) {
-    const d = new Date(user.proExpiresAt);
+  if (user.pro_expires_at) {
+    const d = new Date(user.pro_expires_at);
     if (!isNaN(d.getTime())) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');

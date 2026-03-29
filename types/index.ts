@@ -1,91 +1,228 @@
-// ----------------------------------------------------------------
-// Paylasilan TypeScript tipleri — UI katmani kullanir.
-// DATABASE-SCHEMA.md ile eslesen yapilar.
-// ----------------------------------------------------------------
-
-export type PlanType =
-  | 'free'
-  | 'starter'
-  | 'starter_monthly'
-  | 'starter_yearly'
-  | 'pro'
-  | 'pro_monthly'
-  | 'pro_yearly'
-  | 'admin'
-
-export type MarketplaceName = 'trendyol' | 'hepsiburada' | 'n11' | 'amazon_tr' | 'custom'
-
-export type RiskLevel = 'safe' | 'moderate' | 'risky' | 'dangerous'
-
-export type TicketStatus = 'acik' | 'inceleniyor' | 'cevaplandi' | 'kapali'
-export type TicketPriority = 'dusuk' | 'normal' | 'yuksek' | 'acil'
-export type TicketCategory = 'teknik' | 'odeme' | 'hesap' | 'oneri' | 'diger'
+export type Marketplace = 'trendyol' | 'hepsiburada' | 'n11' | 'amazon_tr' | 'custom';
+export type PlanType = 'free' | 'starter' | 'pro' | 'pro_monthly' | 'pro_yearly' | 'admin';
+export type RiskLevel = 'safe' | 'moderate' | 'risky' | 'dangerous';
 
 export interface User {
-  id: string
-  email: string
-  fullName: string | null
-  plan: PlanType
-  isPro: boolean
-  proStartedAt: string | null
-  proExpiresAt: string | null
-  proRenewal: boolean
-  emailNotificationsEnabled: boolean
-  emailWeeklyReport: boolean
-  emailRiskAlert: boolean
-  emailMarginAlert: boolean
-  emailProExpiry: boolean
-  targetMargin: number | null
-  defaultMarketplace: string | null
+  id: string;
+  email: string;
+  plan: PlanType;
+  pro_until?: string | null;
+  email_alerts_enabled?: boolean;
+  email_notifications_enabled?: boolean;
+  pro_expires_at?: string | null;
+  pro_renewal?: boolean;
+  pro_started_at?: string | null;
+  // Account preferences
+  target_margin?: number;
+  margin_alert?: boolean;
+  // Email preferences
+  email_weekly_report?: boolean;
+  email_risk_alert?: boolean;
+  email_margin_alert?: boolean;
+  email_pro_expiry?: boolean;
+  default_marketplace?: Marketplace;
+  default_commission?: number;
+  default_vat?: number;
+  monthly_profit_target?: number;
+  default_return_rate?: number;
+  default_ads_cost?: number;
+  fixed_cost_monthly?: number;
+  target_profit_monthly?: number;
+}
+
+export interface CashPlanRow {
+  id?: string;
+  user_id: string;
+  month: string; // YYYY-MM
+  opening_cash: number;
+  cash_in: number;
+  cash_out: number;
+  closing_cash: number;
+}
+
+export type AlertType = 'danger' | 'warning' | 'info';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  analysis_id?: string;
+  product_id?: string;
+  href?: string;
+  type: AlertType;
+  category: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  dedupe_key?: string;
+}
+
+export interface ProductInput {
+  marketplace: Marketplace;
+  product_name: string;
+  monthly_sales_volume: number;
+  product_cost: number;
+  sale_price: number;
+  commission_pct: number;
+  shipping_cost: number;
+  packaging_cost: number;
+  ad_cost_per_sale: number;
+  return_rate_pct: number;
+  vat_pct?: number; // defaults to 20 via n() fallback in calculators
+  other_cost: number;
+  payout_delay_days: number;
+  competitor_price?: number;
+  competitor_name?: string;
+  target_position?: 'cheaper' | 'same' | 'premium';
+
+  // Granular PRO Mode Fields
+  pro_mode?: boolean;
+  sale_price_includes_vat?: boolean;
+  sale_vat_pct?: number;
+  product_cost_includes_vat?: boolean;
+  purchase_vat_pct?: number;
+  marketplace_fee_vat_pct?: number;
+
+  shipping_includes_vat?: boolean;
+  shipping_vat_pct?: number;
+  packaging_includes_vat?: boolean;
+  packaging_vat_pct?: number;
+  ad_includes_vat?: boolean;
+  ad_vat_pct?: number;
+  other_cost_includes_vat?: boolean;
+  other_cost_vat_pct?: number;
+
+  return_refunds_commission?: boolean;
+  return_extra_cost?: number;
+
+  // Category selected in the marketplace category dropdown
+  marketplace_category?: string;
+  /** @deprecated use marketplace_category */
+  trendyol_category?: string;
+
+  // n11 extra fees: +1.20% marketing + 0.67% marketplace = 1.87%
+  n11_extra_pct?: number;
+
+  // Trendyol sabit servis bedeli (sipariş tutarına göre dilimli)
+  trendyol_service_fee?: number;
+
+  // Legacy/Standard fields keep compatibility
+  accounting_mode?: 'standard' | 'pro';
+  income_tax_pct?: number;
+}
+
+export interface CalculationResult {
+  commission_amount: number;
+  vat_amount: number; // Unit Output VAT
+  expected_return_loss: number;
+  service_fee_amount: number; // Trendyol sabit servis bedeli
+  unit_variable_cost: number;
+  unit_total_cost: number;
+  unit_net_profit: number;
+  margin_pct: number;
+  monthly_net_profit: number;
+  monthly_revenue: number;
+  monthly_total_cost: number;
+  breakeven_price: number;
+  sale_price: number; // Added for consistency
+  sale_price_excl_vat: number;
+
+  // PRO specific results
+  output_vat_monthly: number;
+  input_vat_monthly: number;
+  vat_position_monthly: number;
+  monthly_net_sales: number;
+}
+
+export interface RiskFactor {
+  name: string;
+  impact: number;
+  description: string;
+}
+
+export interface RiskResult {
+  score: number;
+  level: RiskLevel;
+  factors: RiskFactor[];
 }
 
 export interface Analysis {
-  id: string
-  userId: string
-  marketplace: MarketplaceName
-  productName: string
-  inputs: Record<string, unknown>
-  outputs: Record<string, unknown>
-  riskScore: number
-  riskLevel: RiskLevel
-  createdAt: string
-  competitorPrice: number | null
-  competitorName: string | null
+  id: string;
+  userId: string;
+  input: ProductInput;
+  result: CalculationResult;
+  risk: RiskResult;
+  createdAt: string;
 }
+
+export interface MarketplaceDefaults {
+  key: Marketplace;
+  label: string;
+  commission_pct: number;
+  return_rate_pct: number;
+  vat_pct: number;
+  payout_delay_days: number;
+}
+
+export type SupportPriority = 'low' | 'medium' | 'high';
+export type SupportStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  category: string;
+  subject: string;
+  message: string;
+  priority: SupportPriority;
+  status: SupportStatus;
+  admin_note?: string;
+  attachment_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Yeni destek talebi sistemi tipleri
+export type TicketCategory = 'teknik' | 'odeme' | 'hesap' | 'oneri' | 'diger'
+export type TicketPriority = 'dusuk' | 'normal' | 'yuksek' | 'acil'
+export type TicketStatus = 'acik' | 'inceleniyor' | 'cevaplandi' | 'kapali'
 
 export interface Ticket {
   id: string
-  userId: string
-  userEmail: string | null
+  user_id: string
+  user_email: string
   subject: string
   category: TicketCategory
   priority: TicketPriority
   status: TicketStatus
   message: string
-  adminReply: string | null
-  adminRepliedAt: string | null
-  createdAt: string
-  updatedAt: string
+  admin_reply: string | null
+  admin_replied_at: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface Notification {
-  id: string
-  userId: string
-  type: 'danger' | 'warning' | 'info'
-  category: string
-  title: string
+export interface CreateTicketDto {
+  subject: string
+  category: TicketCategory
+  priority: TicketPriority
   message: string
-  isRead: boolean
-  href: string | null
-  createdAt: string
 }
 
-export interface MarketplaceConnection {
-  id: string
-  marketplace: MarketplaceName
-  status: 'disconnected' | 'pending_test' | 'connected' | 'error'
-  storeName: string | null
-  sellerId: string | null
-  lastSyncAt: string | null
-  webhookActive: boolean
+export interface UpdateTicketDto {
+  admin_reply?: string
+  status?: TicketStatus
+}
+
+export interface TicketFilters {
+  status?: TicketStatus
+  priority?: TicketPriority
+  category?: TicketCategory
+  search?: string
+}
+
+export interface TicketStats {
+  open: number
+  reviewing: number
+  answeredToday: number
+  total: number
 }

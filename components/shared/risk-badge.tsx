@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { RISK_LEVEL_CONFIG } from '@/utils/risk-engine';
+import { riskLevelConfig } from '@/utils/risk-engine';
 
 type RiskLevel = 'safe' | 'moderate' | 'risky' | 'dangerous';
 
@@ -12,7 +12,7 @@ interface RiskBadgeProps {
 }
 
 export function RiskBadge({ level, score, className }: RiskBadgeProps) {
-  const config = RISK_LEVEL_CONFIG[level];
+  const config = riskLevelConfig[level];
 
   return (
     <span className={cn(

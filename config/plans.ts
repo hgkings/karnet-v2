@@ -100,7 +100,7 @@ const PRO_PLANS: PlanType[] = ['pro', 'pro_monthly', 'pro_yearly']
 export function resolvePlanTier(plan: PlanType): 'free' | 'starter' | 'pro' | 'admin' {
   if (plan === 'admin') return 'admin'
   if (PRO_PLANS.includes(plan)) return 'pro'
-  if (plan === 'starter' || plan === 'starter_monthly' || plan === 'starter_yearly') return 'starter'
+  if (plan === 'starter' || (plan as string) === 'starter_monthly' || (plan as string) === 'starter_yearly') return 'starter'
   return 'free'
 }
 

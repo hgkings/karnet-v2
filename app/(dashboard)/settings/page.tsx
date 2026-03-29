@@ -23,12 +23,12 @@ export default function SettingsPage() {
   const planLabel = PLAN_NAMES[user?.plan ?? 'free'] ?? 'Ücretsiz';
 
   // Local state for toggles
-  const [emailEnabled, setEmailEnabled] = useState(user?.emailNotificationsEnabled ?? true);
-  const [weeklyReport, setWeeklyReport] = useState(user?.emailWeeklyReport ?? true);
-  const [riskAlert, setRiskAlert] = useState(user?.emailRiskAlert ?? true);
-  const [marginAlert, setMarginAlert] = useState(user?.emailMarginAlert ?? true);
-  const [proExpiry, setProExpiry] = useState(user?.emailProExpiry ?? true);
-  const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [emailEnabled, setEmailEnabled] = useState(user?.email_notifications_enabled ?? true);
+  const [weeklyReport, setWeeklyReport] = useState(user?.email_weekly_report ?? true);
+  const [riskAlert, setRiskAlert] = useState(user?.email_risk_alert ?? true);
+  const [marginAlert, setMarginAlert] = useState(user?.email_margin_alert ?? true);
+  const [proExpiry, setProExpiry] = useState(user?.email_pro_expiry ?? true);
+  const [fullName, setFullName] = useState(user?.email ?? '');
 
   async function handleSave() {
     setSaving(true);
@@ -114,8 +114,8 @@ export default function SettingsPage() {
           </CardTitle>
           <CardDescription>
             Mevcut plan: <span className="font-semibold text-foreground">{planLabel}</span>
-            {isPro && user?.proExpiresAt && (
-              <> &middot; Bitiş: {new Intl.DateTimeFormat('tr-TR').format(new Date(user.proExpiresAt))}</>
+            {isPro && user?.pro_expires_at && (
+              <> &middot; Bitiş: {new Intl.DateTimeFormat('tr-TR').format(new Date(user.pro_expires_at))}</>
             )}
           </CardDescription>
         </CardHeader>

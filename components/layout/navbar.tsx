@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Menu, LogOut, Settings } from 'lucide-react';
+import { Menu, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/auth-context';
 import { KarnetLogo } from '@/components/shared/KarnetLogo';
+import { NotificationDrawer } from '@/components/dashboard/notification-drawer';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -41,14 +43,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
         <div className="flex-1" />
 
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Bildirimler</span>
-        </Link>
+        <NotificationDrawer />
 
         {/* User menu */}
         {user ? (
@@ -78,7 +77,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive">
+              <DropdownMenuItem onClick={() => void logout()} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 Çıkış Yap
               </DropdownMenuItem>

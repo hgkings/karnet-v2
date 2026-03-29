@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { toDashboardAnalysis } from '@/types/dashboard';
-import type { DashboardAnalysis } from '@/types/dashboard';
-import { analysesApi } from '@/lib/api/analyses';
+import { getStoredAnalyses, deleteAnalysis } from '@/lib/api/analyses';
 import { KPICard } from '@/components/shared/kpi-card';
 import { ProductsTable } from '@/components/dashboard/products-table';
 import { RiskChart } from '@/components/dashboard/risk-chart';
@@ -15,17 +13,8 @@ import { TrendingUp, Percent, AlertTriangle, Star, BarChart3, Loader2 } from 'lu
 import { toast } from 'sonner';
 import { GeneralRiskCard } from '@/components/dashboard/general-risk-card';
 import { RecommendationsPanel } from '@/components/dashboard/recommendations-panel';
-
-interface RawAnalysisRow {
-  id: string;
-  product_name: string;
-  marketplace: string;
-  inputs: Record<string, unknown>;
-  outputs: Record<string, unknown>;
-  risk_score: number;
-  risk_level: string;
-  created_at: string;
-}
+import type { Analysis } from '@/types';
+import type { DashboardAnalysis } from '@/types/dashboard';
 
 interface ConnStatus {
   status: string;
@@ -33,27 +22,24 @@ interface ConnStatus {
 }
 
 export default function DashboardPage() {
-  const [analyses, setAnalyses] = useState<DashboardAnalysis[]>([]);
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [trendyolConn, setTrendyolConn] = useState<ConnStatus>({ status: 'disconnected' });
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const fetchAnalyses = useCallback(async () => {
     try {
-      const res = await analysesApi.list();
-      const raw = (res.data ?? []) as unknown as RawAnalysisRow[];
-      setAnalyses(raw.map(toDashboardAnalysis));
+      const data = await getStoredAnalyses();
+      setAnalyses(data);
     } catch {
-      toast.error('Veriler yüklenirken hata oluştu.');
+      // silent
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    fetchAnalyses();
+  }, [fetchAnalyses]);
 
   useEffect(() => {
     fetch('/api/marketplace/trendyol')
@@ -66,10 +52,10 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await analysesApi.delete(id);
+      const res = await deleteAnalysis(id);
       if (res.success) {
         toast.success('Analiz silindi.');
-        await refresh();
+        await fetchAnalyses();
       } else {
         toast.error('Silme işlemi başarısız.');
       }
@@ -77,6 +63,9 @@ export default function DashboardPage() {
       toast.error('Hata oluştu.');
     }
   };
+
+  // Bileşenler DashboardAnalysis tipi bekliyor — yapısal olarak aynı
+  const dashAnalyses = analyses as unknown as DashboardAnalysis[];
 
   const totalProfit = analyses.reduce((sum, a) => sum + a.result.monthly_net_profit, 0);
   const avgMargin =
@@ -86,10 +75,12 @@ export default function DashboardPage() {
   const riskyCount = analyses.filter(
     (a) => a.risk.level === 'risky' || a.risk.level === 'dangerous'
   ).length;
-  const mostProfitable: DashboardAnalysis | null =
+  const mostProfitable =
     analyses.length > 0
       ? analyses.reduce(
-          (best, a) => (a.result.monthly_net_profit > best.result.monthly_net_profit ? a : best),
+          (best, a) =>
+            a.result.monthly_net_profit > best.result.monthly_net_profit ? a : best,
+          analyses[0]!
         )
       : null;
 
@@ -103,7 +94,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8 p-4 md:p-6 pb-10">
+    <div className="space-y-8 pb-10">
       {/* Header with Risk Card */}
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-between border-b border-[rgba(255,255,255,0.06)] pb-6">
         <div className="space-y-1.5 w-full lg:w-auto">
@@ -118,7 +109,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Actionable Recommendations */}
-      <RecommendationsPanel analyses={analyses} />
+      <RecommendationsPanel analyses={dashAnalyses} />
 
       {/* Dashboard KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -166,11 +157,11 @@ export default function DashboardPage() {
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ProfitTrendChart analyses={analyses} />
+          <ProfitTrendChart analyses={dashAnalyses} />
         </div>
         <div className="space-y-6">
-          <ParetoChart analyses={analyses} />
-          <RiskChart analyses={analyses} />
+          <ParetoChart analyses={dashAnalyses} />
+          <RiskChart analyses={dashAnalyses} />
         </div>
       </div>
 
@@ -182,7 +173,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-bold text-foreground">Son Analizler</h2>
           </div>
         </div>
-        <ProductsTable analyses={analyses.slice(0, 10)} onDelete={handleDelete} />
+        <ProductsTable analyses={dashAnalyses.slice(0, 10)} onDelete={handleDelete} />
       </div>
     </div>
   );

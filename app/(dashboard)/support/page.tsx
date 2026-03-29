@@ -1,213 +1,115 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, HelpCircle, Mail, MessageCircle, PlusCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+import { TicketForm } from '@/components/support/ticket-form';
+import { TicketList } from '@/components/support/ticket-list';
+import { TicketDetailDialog } from '@/components/support/ticket-detail-dialog';
+import { useSupportTickets } from '@/hooks/use-support-tickets';
+import type { Ticket } from '@/types';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { apiClient } from '@/lib/api/client';
-
-interface Ticket {
-  id: string;
-  subject: string;
-  category: string;
-  priority: string;
-  status: string;
-  message: string;
-  admin_reply: string | null;
-  created_at: string;
-}
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  acik: { label: 'Açık', className: 'bg-red-500/20 text-red-400' },
-  inceleniyor: { label: 'İnceleniyor', className: 'bg-amber-500/20 text-amber-400' },
-  cevaplandi: { label: 'Cevaplandı', className: 'bg-emerald-500/20 text-emerald-400' },
-  kapali: { label: 'Kapalı', className: 'bg-muted text-muted-foreground' },
-};
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function SupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState('teknik');
-  const [priority, setPriority] = useState('normal');
-  const [message, setMessage] = useState('');
+  const { tickets, loading, createTicket, refetch } = useSupportTickets();
+  const [formOpen, setFormOpen] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  async function fetchTickets() {
-    setLoading(true);
-    try {
-      const res = await apiClient.get<Ticket[]>('/api/support/tickets');
-      setTickets((res.data ?? []) as Ticket[]);
-    } catch {
-      toast.error('Talepler yüklenirken hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const handleCreateSuccess = () => {
+    toast.success('Destek talebiniz oluşturuldu.');
+    setFormOpen(false);
+    refetch();
+  };
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const res = await apiClient.post('/api/support/tickets', { subject, category, priority, message });
-      if (res.success) {
-        toast.success('Destek talebiniz oluşturuldu.');
-        setShowForm(false);
-        setSubject(''); setMessage('');
-        void fetchTickets();
-      } else {
-        toast.error(res.error ?? 'Talep oluşturulamadı.');
-      }
-    } catch {
-      toast.error('Bir hata oluştu. Lütfen tekrar deneyin.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  useEffect(() => { void fetchTickets(); }, []);
+  const handleSelectTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    setDialogOpen(true);
+  };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Destek</h1>
-          <p className="text-muted-foreground text-sm">Yardım talepleriniz</p>
-        </div>
-        <Button
-          size="sm"
-          className="text-xs font-semibold"
-          style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }}
-          onClick={() => setShowForm(!showForm)}
+    <div className="max-w-3xl mx-auto space-y-8 p-4 sm:p-0">
+      <div className="pt-4">
+        <h1 className="text-2xl font-bold tracking-tight">Destek</h1>
+        <p className="text-muted-foreground text-sm mt-1">Yeni talep oluştur veya mevcut taleplerinizi görüntüleyin.</p>
+      </div>
+
+      {/* Yeni Talep Formu */}
+      <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] overflow-hidden">
+        <button
+          onClick={() => setFormOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-4 text-sm font-semibold hover:bg-white/5 transition-colors"
         >
-          {showForm ? <ChevronUp className="mr-1 h-3 w-3" /> : <PlusCircle className="mr-1 h-3 w-3" />}
-          {showForm ? 'Kapat' : 'Yeni Talep'}
-        </Button>
+          <span>Yeni Destek Talebi Oluştur</span>
+          {formOpen
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          }
+        </button>
+        {formOpen && (
+          <div className="px-5 pb-5 border-t border-border">
+            <div className="pt-4">
+              <TicketForm
+                onSuccess={handleCreateSuccess}
+                onCreate={createTicket}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Contact */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card p-3">
-          <Mail className="h-5 w-5 text-primary shrink-0" />
-          <div>
-            <p className="text-sm font-medium">E-posta</p>
-            <p className="text-xs text-muted-foreground">karnet.destek@gmail.com</p>
+      {/* Mevcut Talepler */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold">Taleplerim</h2>
+        <TicketList
+          tickets={tickets}
+          loading={loading}
+          onSelectTicket={handleSelectTicket}
+        />
+      </div>
+
+      {/* Doğrudan İletişim */}
+      <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">
+          Doğrudan İletişim
+        </h3>
+        <p className="text-sm text-[rgba(255,255,255,0.5)] mb-4">
+          Acil durumlar veya destek talebi dışındaki sorularınız için bize doğrudan ulaşabilirsiniz.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-[rgba(255,255,255,0.4)]">E-posta</p>
+              <a href="mailto:karnet.destek@gmail.com" className="text-sm font-medium text-blue-400 hover:underline">
+                karnet.destek@gmail.com
+              </a>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-card p-3">
-          <MessageCircle className="h-5 w-5 text-emerald-400 shrink-0" />
-          <div>
-            <p className="text-sm font-medium">WhatsApp</p>
-            <p className="text-xs text-muted-foreground">Hızlı destek</p>
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-[rgba(255,255,255,0.4)]">WhatsApp</p>
+              <a href="https://wa.me/905433824521" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground hover:underline">
+                +90 543 382 45 21
+              </a>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Form */}
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Yeni Destek Talebi</CardTitle>
-            <CardDescription>Sorununuzu detaylı açıklayın</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="subject">Konu <span className="text-destructive">*</span></Label>
-                <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Kısa bir başlık" maxLength={200} required disabled={submitting} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Kategori</Label>
-                  <Select value={category} onValueChange={(v) => { if (v) setCategory(v); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="teknik">Teknik</SelectItem>
-                      <SelectItem value="odeme">Ödeme</SelectItem>
-                      <SelectItem value="hesap">Hesap</SelectItem>
-                      <SelectItem value="oneri">Öneri</SelectItem>
-                      <SelectItem value="diger">Diğer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Öncelik</Label>
-                  <Select value={priority} onValueChange={(v) => { if (v) setPriority(v); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dusuk">Düşük</SelectItem>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="yuksek">Yüksek</SelectItem>
-                      <SelectItem value="acil">Acil</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="message">Mesaj <span className="text-destructive">*</span></Label>
-                <Textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Sorununuzu detaylı açıklayın (en az 20 karakter)" minLength={20} maxLength={5000} rows={5} required disabled={submitting} />
-              </div>
-              <Button type="submit" disabled={submitting} style={{ background: 'linear-gradient(135deg, #D97706, #92400E)' }} className="text-white font-semibold">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Talebi Gönder
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tickets */}
-      <Card>
-        <CardHeader><CardTitle className="text-base">Talepleriniz</CardTitle></CardHeader>
-        <CardContent>
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          )}
-
-          {!loading && tickets.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <HelpCircle className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg mb-1">Henüz talep yok</h3>
-              <p className="text-muted-foreground text-sm">Bir sorun yaşıyorsanız destek talebi oluşturun.</p>
-            </div>
-          )}
-
-          {!loading && tickets.length > 0 && (
-            <div className="space-y-3">
-              {tickets.map((t) => {
-                const status = STATUS_CONFIG[t.status] ?? { label: t.status, className: 'bg-muted text-muted-foreground' };
-                return (
-                  <div key={t.id} className="rounded-xl border border-border/30 p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-medium text-sm truncate">{t.subject}</h4>
-                      <Badge variant="secondary" className={status.className}>{status.label}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{t.message}</p>
-                    {t.admin_reply && (
-                      <div className="mt-2 p-3 rounded-lg bg-primary/5 border-l-2 border-primary">
-                        <p className="text-xs font-medium text-primary mb-1">Kârnet Destek:</p>
-                        <p className="text-sm">{t.admin_reply}</p>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      {t.created_at ? new Intl.DateTimeFormat('tr-TR').format(new Date(t.created_at)) : ''}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <TicketDetailDialog
+        ticket={selectedTicket}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }

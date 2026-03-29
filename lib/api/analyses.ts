@@ -3,13 +3,16 @@ import { Analysis } from '@/types'
 export async function getStoredAnalyses(): Promise<Analysis[]> {
   const res = await fetch('/api/analyses')
   if (!res.ok) throw new Error('Analizler yüklenemedi')
-  return res.json()
+  const json = await res.json()
+  // API { success, data } döner — array'i çıkar
+  return Array.isArray(json) ? json : (json.data ?? [])
 }
 
 export async function getAnalysisById(id: string): Promise<Analysis | null> {
   const res = await fetch(`/api/analyses/${id}`)
   if (!res.ok) return null
-  return res.json()
+  const json = await res.json()
+  return json.data ?? json ?? null
 }
 
 export async function saveAnalysis(analysis: Analysis): Promise<{ success: boolean; error?: string }> {

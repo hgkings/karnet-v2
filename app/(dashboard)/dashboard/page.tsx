@@ -42,7 +42,7 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const res = await analysesApi.list();
-      const raw = (res.data ?? []) as RawAnalysisRow[];
+      const raw = (res.data ?? []) as unknown as RawAnalysisRow[];
       setAnalyses(raw.map(toDashboardAnalysis));
     } catch {
       toast.error('Veriler yüklenirken hata oluştu.');

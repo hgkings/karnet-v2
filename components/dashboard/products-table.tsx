@@ -62,7 +62,7 @@ export function ProductsTable({ analyses, onDelete }: ProductsTableProps) {
       data = data.filter(
         (a) =>
           a.input.product_name.toLowerCase().includes(lower) ||
-          getMarketplaceLabel(a.input.marketplace).toLowerCase().includes(lower)
+          getMarketplaceLabel(a.input.marketplace as import('@/types').Marketplace).toLowerCase().includes(lower)
       );
     }
 
@@ -302,7 +302,7 @@ export function ProductsTable({ analyses, onDelete }: ProductsTableProps) {
                       </div>
                       <div className="mt-1 sm:hidden">
                         <span className="inline-flex items-center rounded-md bg-[rgba(255,255,255,0.06)] px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                          {getMarketplaceLabel(a.input.marketplace)}
+                          {getMarketplaceLabel(a.input.marketplace as import('@/types').Marketplace)}
                         </span>
                       </div>
                       {/* Health Tags */}
@@ -330,7 +330,7 @@ export function ProductsTable({ analyses, onDelete }: ProductsTableProps) {
                     </td>
                     <td className="hidden px-4 py-3.5 sm:table-cell">
                       <span className="inline-flex items-center rounded-full bg-[rgba(255,255,255,0.06)] px-2.5 py-1 text-xs font-medium text-[rgba(255,255,255,0.6)] border border-[rgba(255,255,255,0.06)]">
-                        {getMarketplaceLabel(a.input.marketplace)}
+                        {getMarketplaceLabel(a.input.marketplace as import('@/types').Marketplace)}
                       </span>
                     </td>
                     <td

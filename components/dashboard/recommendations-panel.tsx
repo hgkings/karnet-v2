@@ -55,7 +55,7 @@ export function RecommendationsPanel({ analyses }: RecommendationsPanelProps) {
         });
       }
 
-      const adCeiling = calculateAdCeiling(analysis.input);
+      const adCeiling = calculateAdCeiling(analysis.input as unknown as import('@/types').ProductInput);
       if (analysis.input.ad_cost_per_sale > adCeiling && adCeiling > 0) {
         issues.push({
           type: 'ads',

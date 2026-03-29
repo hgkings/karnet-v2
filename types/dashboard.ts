@@ -18,6 +18,7 @@ export interface DashboardAnalysisInput {
   other_cost: number;
   commission_pct: number;
   return_rate_pct: number;
+  payout_delay_days: number;
   vat_pct: number;
   monthly_sales_volume: number;
 }
@@ -78,6 +79,7 @@ export function toDashboardAnalysis(raw: RawAnalysisRow): DashboardAnalysis {
       return_rate_pct: num(i.returnRatePct ?? i.return_rate_pct),
       vat_pct: num(i.vatPct ?? i.vat_pct),
       monthly_sales_volume: num(i.monthlySalesVolume ?? i.monthly_sales_volume),
+      payout_delay_days: num(i.payoutDelayDays ?? i.payout_delay_days),
     },
     result: {
       unit_net_profit: num(o.unitNetProfit ?? o.unit_net_profit),
